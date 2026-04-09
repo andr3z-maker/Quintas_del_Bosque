@@ -678,6 +678,16 @@ textarea { resize: vertical; min-height: 72px; }
             <input type="text" id="nv-lote" placeholder="ej: 14B">
           </div>
         </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label class="field-label">Mes de ingreso</label>
+            <select id="nv-desde"></select>
+          </div>
+          <div class="form-field">
+            <label class="field-label">Mes de egreso <span style="color:var(--text-muted);font-weight:400">(opcional)</span></label>
+            <select id="nv-hasta"></select>
+          </div>
+        </div>
         <div id="vecino-form-err" class="alert alert-error"></div>
         <div style="display:flex;gap:8px">
           <button class="btn btn-primary btn-sm" onclick="guardarVecino()">Guardar</button>
@@ -916,10 +926,10 @@ let compFiles = { ing: null, egr: null };
 
 // ── DEMO DATA ──
 const DEMO_VECINOS = [
-  { id:'v1', nombre:'García, Juan',     lote:'01' },
-  { id:'v2', nombre:'Martínez, María',  lote:'02' },
-  { id:'v3', nombre:'López, Carlos',    lote:'03' },
-  { id:'v4', nombre:'Fernández, Ana',   lote:'04' },
+  { id:'v1', nombre:'García, Juan',    lote:'01', fecha_desde:'2026-01', fecha_hasta:null },
+  { id:'v2', nombre:'Martínez, María', lote:'02', fecha_desde:'2026-01', fecha_hasta:null },
+  { id:'v3', nombre:'López, Carlos',   lote:'03', fecha_desde:'2026-03', fecha_hasta:null },
+  { id:'v4', nombre:'Fernández, Ana',  lote:'04', fecha_desde:'2026-01', fecha_hasta:'2026-02' },
 ];
 let DEMO_MOVS = [
   { id:'m1', tipo:'ingreso', desc:'Cuota Octubre 2024', monto:15000, fecha:'2024-10-05', cat:'Cuota', por:'Admin', vecino_id:'v1', vecino_nombre:'García, Juan',    vecino_lote:'01', periodo:'2024-10' },
@@ -1186,7 +1196,14 @@ function renderCuotas() {
   if (mesAnt < 1) { mesAnt = 12; anioAnt--; }
   const periodoAntKey = anioAnt + '-' + String(mesAnt).padStart(2,'0');
 
-  const sorted = [...vecinos].sort((a,b)=>a.lote.localeCompare(b.lote, undefined, {numeric:true}));
+  // Solo vecinos activos en el período seleccionado
+  const sorted = [...vecinos]
+    .filter(v => {
+      if (v.fecha_desde && v.fecha_desde > periodoKey) return false; // aún no ingresó
+      if (v.fecha_hasta && v.fecha_hasta < periodoKey) return false; // ya se fue
+      return true;
+    })
+    .sort((a,b)=>a.lote.localeCompare(b.lote, undefined, {numeric:true}));
 
   sorted.forEach(v => {
     // Buscar pago del mes actual (por vecino_id o por fecha si no tiene periodo)
@@ -1326,11 +1343,12 @@ function renderVecinos() {
   [...vecinos].sort((a,b)=>a.nombre.localeCompare(b.nombre)).forEach(v => {
     const card = document.createElement('div');
     card.className = 'item-card';
+    const inactivo = v.fecha_hasta && v.fecha_hasta < periodoHoy();
     card.innerHTML = `
-      <div class="mov-icon ingreso" style="font-size:15px">🏡</div>
+      <div class="mov-icon ${inactivo?'egreso':'ingreso'}" style="font-size:15px">🏡</div>
       <div class="item-card-info">
-        <div class="name">${v.nombre}</div>
-        <div class="sub">Lote / Casa: ${v.lote}</div>
+        <div class="name">${v.nombre} ${inactivo ? '<span style="font-size:10px;color:var(--red);font-weight:600">INACTIVO</span>' : ''}</div>
+        <div class="sub">Lote ${v.lote} · Desde ${fmtPeriodo(v.fecha_desde)}${v.fecha_hasta ? ' · Hasta ' + fmtPeriodo(v.fecha_hasta) : ''}</div>
       </div>
       <div class="item-card-actions">
         <button class="btn-sm btn-ghost" onclick="editVecino('${v.id}')">✏️</button>
@@ -1528,6 +1546,26 @@ function renderPeriodoSelect(elId, valorActual) {
     if (valorActual ? val === valorActual : esActual) o.selected = true;
     sel.appendChild(o);
   }
+}
+
+// ── SELECT PERÍODO HASTA (con opción ninguno) ──
+function renderPeriodoSelectHasta(elId, valorActual) {
+  const sel = document.getElementById(elId);
+  if (!sel) return;
+  const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  sel.innerHTML = '<option value="__ninguno__">Sin egreso</option>';
+  const inicio = new Date(2026, 0, 1);
+  const hoy = new Date();
+  const fin = new Date(hoy.getFullYear(), hoy.getMonth() + 12, 1);
+  for (let d = new Date(inicio); d <= fin; d.setMonth(d.getMonth()+1)) {
+    const val = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+    const o = document.createElement('option');
+    o.value = val;
+    o.textContent = MESES[d.getMonth()] + ' ' + d.getFullYear();
+    if (valorActual && val === valorActual) o.selected = true;
+    sel.appendChild(o);
+  }
+  if (!valorActual) sel.value = '__ninguno__';
 }
 
 // ── SELECT VECINO INGRESO ──
@@ -1989,6 +2027,8 @@ function toggleFormVecino() {
   document.getElementById('nv-nombre').value = '';
   document.getElementById('nv-lote').value = '';
   document.getElementById('vecino-form-err').classList.remove('show');
+  renderPeriodoSelect('nv-desde', periodoHoy());
+  renderPeriodoSelectHasta('nv-hasta', null);
   const f = document.getElementById('form-vecino');
   f.classList.toggle('open');
 }
@@ -2002,6 +2042,8 @@ function editVecino(id) {
   editVecinoId = id;
   document.getElementById('nv-nombre').value = v.nombre;
   document.getElementById('nv-lote').value = v.lote;
+  renderPeriodoSelect('nv-desde', v.fecha_desde || '2026-01');
+  renderPeriodoSelectHasta('nv-hasta', v.fecha_hasta || null);
   document.getElementById('form-vecino-title').textContent = 'Editar vecino';
   document.getElementById('form-vecino').classList.add('open');
   document.getElementById('nv-nombre').focus();
@@ -2013,20 +2055,25 @@ async function guardarVecino() {
   if (!nombre || !lote) { err.textContent='Completá nombre y lote.'; err.classList.add('show'); return; }
   err.classList.remove('show');
 
+  const fecha_desde = document.getElementById('nv-desde').value || '2026-01';
+  const fecha_hastaVal = document.getElementById('nv-hasta').value;
+  const fecha_hasta = fecha_hastaVal === '__ninguno__' ? null : (fecha_hastaVal || null);
+
   if (DEMO) {
     if (editVecinoId) {
       const v = vecinos.find(x=>x.id===editVecinoId);
-      if (v) { v.nombre = nombre; v.lote = lote; }
+      if (v) { v.nombre=nombre; v.lote=lote; v.fecha_desde=fecha_desde; v.fecha_hasta=fecha_hasta; }
     } else {
-      vecinos.push({ id:'v'+demoNextId++, nombre, lote });
+      vecinos.push({ id:'v'+demoNextId++, nombre, lote, fecha_desde, fecha_hasta });
     }
   } else {
     try {
       if (editVecinoId) {
-        await sb('vecinos?id=eq.'+editVecinoId, { method:'PATCH', body: JSON.stringify({nombre,lote}) });
-        const v = vecinos.find(x=>x.id===editVecinoId); if(v){v.nombre=nombre;v.lote=lote;}
+        await sb('vecinos?id=eq.'+editVecinoId, { method:'PATCH', body: JSON.stringify({nombre,lote,fecha_desde,fecha_hasta}) });
+        const v = vecinos.find(x=>x.id===editVecinoId);
+        if(v){v.nombre=nombre;v.lote=lote;v.fecha_desde=fecha_desde;v.fecha_hasta=fecha_hasta;}
       } else {
-        const saved = await sb('vecinos', { method:'POST', body: JSON.stringify({nombre,lote}) });
+        const saved = await sb('vecinos', { method:'POST', body: JSON.stringify({nombre,lote,fecha_desde,fecha_hasta}) });
         vecinos.push(Array.isArray(saved)?saved[0]:saved);
       }
     } catch(e) { toast('Error: '+e.message); return; }
@@ -2191,6 +2238,18 @@ function toast(msg) {
 // ══════════════════════════════════════════════
 //  HELPERS
 // ══════════════════════════════════════════════
+function periodoHoy() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+}
+
+function fmtPeriodo(p) {
+  if (!p) return '—';
+  const [y, m] = p.split('-').map(Number);
+  const M = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  return M[m-1] + ' ' + y;
+}
+
 function fmt(n) {
   return Math.abs(n).toLocaleString('es-AR',{minimumFractionDigits:0,maximumFractionDigits:0});
 }
