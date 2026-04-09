@@ -736,10 +736,17 @@ const SUPA_URL = 'https://odibssskjtanbxanbgsx.supabase.co';
 const SUPA_KEY = 'sb_publishable_kCvu-kXjjiS4ZAwrtUrhng_FJaU8vle';
 
 // ── USUARIOS (local, sin tabla) ──
-const USERS = {
-  admin:  { pass: '1234',               nombre: 'Admin',  rol: 'admin'  },
-  vecino: { pass: 'quintasdelbosque',   nombre: 'Vecino', rol: 'vecino' },
+const USERS_DEFAULT = {
+  admin:  { pass: '1234',             nombre: 'Admin',  rol: 'admin'  },
+  vecino: { pass: 'quintasdelbosque', nombre: 'Vecino', rol: 'vecino' },
 };
+// Cargar contraseñas guardadas (admin puede cambiarla)
+const USERS = JSON.parse(JSON.stringify(USERS_DEFAULT));
+try {
+  const saved = JSON.parse(localStorage.getItem('bq-passes') || '{}');
+  if (saved.admin)  USERS.admin.pass  = saved.admin;
+  if (saved.vecino) USERS.vecino.pass = saved.vecino;
+} catch(e) {}
 
 // ── DEMO MODE (sin Supabase real) ──
 const DEMO = SUPA_URL.includes('TU_PROYECTO');
@@ -1168,8 +1175,10 @@ function resetComps() {
 async function uploadComprobante(file, movId) {
   if (!file || DEMO) return null;
   try {
-    const ext = file.name.split('.').pop();
-    const path = movId + '.' + ext;
+    const ext = file.name.split('.').pop().toLowerCase();
+    const path = movId + '_' + Date.now() + '.' + ext;
+
+    // Subir archivo al bucket
     const res = await fetch(SUPA_URL + '/storage/v1/object/comprobantes/' + path, {
       method: 'POST',
       headers: {
@@ -1180,10 +1189,17 @@ async function uploadComprobante(file, movId) {
       },
       body: file,
     });
-    if (!res.ok) throw new Error('Upload falló: ' + res.statusText);
-    return SUPA_URL + '/storage/v1/object/public/comprobantes/' + path;
+
+    if (!res.ok) {
+      const errBody = await res.text();
+      throw new Error(errBody || res.statusText);
+    }
+
+    // URL pública del archivo
+    const publicUrl = SUPA_URL + '/storage/v1/object/public/comprobantes/' + path;
+    return publicUrl;
   } catch(e) {
-    toast('Comprobante no se pudo subir: ' + e.message);
+    toast('⚠️ Comprobante no se pudo subir: ' + e.message);
     return null;
   }
 }
@@ -1294,24 +1310,39 @@ function openDetalle(id) {
   document.getElementById('det-fecha').textContent = fmtFecha(m.fecha);
   document.getElementById('det-por').textContent = m.por;
   const vecinosRow = document.getElementById('det-vecinos-row');
-  if (m.vecinos_nombres && m.vecinos_nombres.length) {
+  const vn = m.vecinos_nombres;
+  const tieneVecinos = vn && Array.isArray(vn) && vn.length > 0;
+  if (tieneVecinos) {
     vecinosRow.style.display = '';
-    document.getElementById('det-vecinos-val').textContent = m.vecinos_nombres.join(', ');
+    vecinosRow.querySelector('.det-label').textContent = vn.length === 1 ? 'Vecino' : 'Vecinos';
+    document.getElementById('det-vecinos-val').textContent = vn.join(', ');
   } else { vecinosRow.style.display = 'none'; }
   document.getElementById('btn-det-del').style.display = currentUser.rol==='admin' ? '' : 'none';
   // Comprobante en detalle
   const compWrap = document.getElementById('det-comp-wrap');
   if (m.comprobante_url) {
     const url = m.comprobante_url;
-    const isPdf = url.toLowerCase().includes('.pdf') || (url.startsWith('blob') && compFiles && false);
+    const isPdf = url.toLowerCase().split('?')[0].endsWith('.pdf');
     if (isPdf) {
-      compWrap.innerHTML = `<a class="det-comp-pdf" href="${url}" target="_blank" rel="noopener">
-        <span style="font-size:22px">📄</span>
-        <span>Ver comprobante PDF</span>
-        <span style="color:var(--gold)">↗</span>
-      </a>`;
+      compWrap.innerHTML = `
+        <div style="margin-top:12px">
+          <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px">Comprobante</div>
+          <a class="det-comp-pdf" href="${url}" target="_blank" rel="noopener">
+            <span style="font-size:24px">📄</span>
+            <span>Ver comprobante PDF</span>
+            <span style="color:var(--gold);font-size:18px">↗</span>
+          </a>
+        </div>`;
     } else {
-      compWrap.innerHTML = `<img src="${url}" class="det-comp-img" alt="Comprobante" onclick="openLightbox('${url}')">`;
+      compWrap.innerHTML = `
+        <div style="margin-top:12px">
+          <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px">Comprobante</div>
+          <img src="${url}" class="det-comp-img" alt="Comprobante"
+            onclick="openLightbox('${url}')"
+            onerror="this.parentElement.innerHTML='<p style=\'font-size:13px;color:var(--text-muted);padding:10px 0\'>No se pudo cargar la imagen</p>'"
+          >
+          <p style="font-size:11px;color:var(--text-muted);margin-top:6px;text-align:center">Tocá para ampliar</p>
+        </div>`;
     }
     compWrap.style.display = '';
   } else {
@@ -1466,6 +1497,11 @@ function cambiarPass() {
   if (nueva !== rep) { err.textContent='Las contraseñas no coinciden.'; err.classList.add('show'); return; }
 
   USERS.admin.pass = nueva;
+  try {
+    const saved = JSON.parse(localStorage.getItem('bq-passes') || '{}');
+    saved.admin = nueva;
+    localStorage.setItem('bq-passes', JSON.stringify(saved));
+  } catch(e) {}
   ok.textContent='Contraseña cambiada correctamente.'; ok.classList.add('show');
   setTimeout(()=>closeModal('modal-pass'), 1400);
 }
