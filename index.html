@@ -619,8 +619,8 @@ textarea { resize: vertical; min-height: 72px; }
       </div>
       <div class="form-field">
         <label class="field-label">Comprobante <span style="color:var(--text-muted);font-weight:400">(opcional)</span></label>
-        <div class="comp-upload" onclick="document.getElementById('ing-comp-file').click()">
-          <input type="file" id="ing-comp-file" accept="image/*,application/pdf" onchange="onCompFile('ing')">
+        <div class="comp-upload" onclick="if(event.target===this||event.target.classList.contains('comp-upload-icon')||event.target.classList.contains('comp-upload-lbl')||event.target.classList.contains('comp-upload-name')){document.getElementById('ing-comp-file').click()}">
+          <input type="file" id="ing-comp-file" accept="image/*,application/pdf" onchange="onCompFile('ing')" style="display:none">
           <div class="comp-upload-icon">📎</div>
           <div class="comp-upload-lbl">Tocá para adjuntar imagen o PDF</div>
           <div class="comp-upload-name" id="ing-comp-name"></div>
@@ -654,8 +654,8 @@ textarea { resize: vertical; min-height: 72px; }
       </div>
       <div class="form-field">
         <label class="field-label">Comprobante <span style="color:var(--text-muted);font-weight:400">(opcional)</span></label>
-        <div class="comp-upload" onclick="document.getElementById('egr-comp-file').click()">
-          <input type="file" id="egr-comp-file" accept="image/*,application/pdf" onchange="onCompFile('egr')">
+        <div class="comp-upload" onclick="if(event.target===this||event.target.classList.contains('comp-upload-icon')||event.target.classList.contains('comp-upload-lbl')||event.target.classList.contains('comp-upload-name')){document.getElementById('egr-comp-file').click()}">
+          <input type="file" id="egr-comp-file" accept="image/*,application/pdf" onchange="onCompFile('egr')" style="display:none">
           <div class="comp-upload-icon">📎</div>
           <div class="comp-upload-lbl">Tocá para adjuntar imagen o PDF</div>
           <div class="comp-upload-name" id="egr-comp-name"></div>
@@ -978,11 +978,17 @@ function renderMovimientos() {
       card.className = 'mov-card';
       card.style.animationDelay = i*.04+'s';
       card.onclick = () => openDetalle(m.id);
+      const vecinoLabel = (m.vecinos_nombres && m.vecinos_nombres.length)
+        ? m.vecinos_nombres[0] : '';
       card.innerHTML = `
         <div class="mov-icon ${m.tipo}">${ico}</div>
         <div class="mov-info">
           <div class="mov-desc">${m.desc}</div>
-          <div class="mov-meta"><span>${fmtFecha(m.fecha)}</span><span class="cat-pill">${m.cat||''}</span></div>
+          <div class="mov-meta">
+            <span>${fmtFecha(m.fecha)}</span>
+            <span class="cat-pill">${m.cat||''}</span>
+            ${vecinoLabel ? `<span style="color:var(--text-dim);font-size:11px">· ${vecinoLabel}</span>` : ''}
+          </div>
         </div>
         <div class="mov-amount ${m.tipo==='ingreso'?'text-green':'text-red'}">
           ${m.tipo==='ingreso'?'+':'-'}$${fmt(m.monto)}
