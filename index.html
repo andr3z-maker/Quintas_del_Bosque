@@ -795,19 +795,26 @@ let demoNextId = 10;
 //  SUPABASE HELPER
 // ══════════════════════════════════════════════
 async function sb(path, opts = {}) {
+  // Con las nuevas publishable keys (sb_publishable_...) la key va SOLO en apikey,
+  // NO en Authorization (que debe estar vacío o con un JWT de usuario)
+  const isNewKey = SUPA_KEY.startsWith('sb_publishable_') || SUPA_KEY.startsWith('sb_secret_');
+  const headers = {
+    'apikey': SUPA_KEY,
+    'Content-Type': 'application/json',
+    'Prefer': opts.prefer || 'return=representation',
+    ...(opts.headers || {}),
+  };
+  if (!isNewKey) {
+    headers['Authorization'] = 'Bearer ' + SUPA_KEY;
+  }
+  const { headers: _h, prefer: _p, ...fetchOpts } = opts;
   const res = await fetch(SUPA_URL + '/rest/v1/' + path, {
-    headers: {
-      'apikey': SUPA_KEY,
-      'Authorization': 'Bearer ' + SUPA_KEY,
-      'Content-Type': 'application/json',
-      'Prefer': opts.prefer || 'return=representation',
-      ...opts.headers
-    },
-    ...opts
+    headers,
+    ...fetchOpts,
   });
   if (!res.ok) {
     const e = await res.json().catch(() => ({}));
-    throw new Error(e.message || res.statusText);
+    throw new Error(e.message || e.error_description || res.statusText);
   }
   return res.status === 204 ? null : res.json();
 }
@@ -1179,14 +1186,16 @@ async function uploadComprobante(file, movId) {
     const path = movId + '_' + Date.now() + '.' + ext;
 
     // Subir archivo al bucket
+    const isNewKey = SUPA_KEY.startsWith('sb_publishable_') || SUPA_KEY.startsWith('sb_secret_');
+    const uploadHeaders = {
+      'apikey': SUPA_KEY,
+      'Content-Type': file.type,
+      'x-upsert': 'true',
+    };
+    if (!isNewKey) uploadHeaders['Authorization'] = 'Bearer ' + SUPA_KEY;
     const res = await fetch(SUPA_URL + '/storage/v1/object/comprobantes/' + path, {
       method: 'POST',
-      headers: {
-        'apikey': SUPA_KEY,
-        'Authorization': 'Bearer ' + SUPA_KEY,
-        'Content-Type': file.type,
-        'x-upsert': 'true',
-      },
+      headers: uploadHeaders,
       body: file,
     });
 
