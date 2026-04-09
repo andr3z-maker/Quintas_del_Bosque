@@ -845,11 +845,21 @@ function updateThemeIcon(t) {
 // ══════════════════════════════════════════════
 //  LOGIN / LOGOUT
 // ══════════════════════════════════════════════
-function doLogin() {
+async function doLogin() {
   const u = document.getElementById('inp-user').value.trim().toLowerCase();
   const p = document.getElementById('inp-pass').value;
   const found = USERS[u];
-  if (!found || found.pass !== p) {
+  if (!found) { document.getElementById('login-err').classList.add('show'); return; }
+
+  // Si es admin y no es DEMO, verificar contraseña actualizada en Supabase
+  if (u === 'admin' && !DEMO) {
+    try {
+      const cfg = await sb('config?clave=eq.pass_admin&select=valor');
+      if (cfg && cfg.length > 0) USERS.admin.pass = cfg[0].valor;
+    } catch(e) { /* si falla, usa la pass local */ }
+  }
+
+  if (found.pass !== p) {
     document.getElementById('login-err').classList.add('show'); return;
   }
   document.getElementById('login-err').classList.remove('show');
