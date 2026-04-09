@@ -870,6 +870,11 @@ function doLogout() {
 
 async function initApp() {
   showScreen('loader');
+  // Timeout de seguridad: si en 8 segundos no cargó, mostramos la app igual
+  const safetyTimer = setTimeout(() => {
+    showScreen('app');
+    toast('Conexión lenta — algunos datos pueden no estar disponibles');
+  }, 8000);
   const isAdmin = currentUser.rol === 'admin';
   document.getElementById('hdr-avatar').childNodes[0].textContent = currentUser.nombre[0];
   document.getElementById('hdr-sub').textContent = 'Hola, ' + currentUser.nombre;
@@ -879,6 +884,7 @@ async function initApp() {
   document.getElementById('fab').className = 'fab' + (isAdmin ? ' visible' : '');
 
   await loadData();
+  clearTimeout(safetyTimer);
   renderTodo();
   showScreen('app');
 }
@@ -893,23 +899,29 @@ async function loadData() {
     categorias = [...CATS_DEFAULT, { id:'cat-cuota', nombre:'Cuota', icono:'🏠' }];
     return;
   }
+  // Cargar datos principales
   try {
-    const [v, m, c, cfg] = await Promise.all([
+    const [v, m, c] = await Promise.all([
       sb('vecinos?order=nombre'),
       sb('movimientos?order=fecha.desc'),
       sb('categorias?order=nombre'),
-      sb('config?select=clave,valor'),
     ]);
     vecinos = v || [];
     movimientos = (m || []).map(x => ({ ...x, desc: x.descripcion }));
     categorias = c || [];
-    // Aplicar configuración: contraseña admin
+  } catch(err) {
+    toast('Error al cargar datos: ' + err.message);
+  }
+  // Cargar config por separado (no bloquea si falla)
+  try {
+    const cfg = await sb('config?select=clave,valor');
     if (cfg) {
       const passAdmin = cfg.find(x => x.clave === 'pass_admin');
       if (passAdmin) USERS.admin.pass = passAdmin.valor;
     }
-  } catch(err) {
-    toast('Error al cargar datos: ' + err.message);
+  } catch(e) {
+    // Si falla config, seguimos con contraseña por defecto
+    console.warn('Config no disponible:', e.message);
   }
 }
 
