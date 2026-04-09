@@ -854,6 +854,13 @@ textarea { resize: vertical; min-height: 72px; }
     <div class="modal-handle"></div>
     <div class="modal-title">Cambiar contraseña</div>
     <div class="form-field">
+      <label class="field-label">Usuario</label>
+      <select id="pass-usuario">
+        <option value="admin">Admin</option>
+        <option value="vecino">Vecino</option>
+      </select>
+    </div>
+    <div class="form-field" id="pass-actual-wrap">
       <label class="field-label">Contraseña actual</label>
       <input type="password" id="pass-actual" placeholder="••••••">
     </div>
@@ -1008,10 +1015,15 @@ async function doLogin() {
   if (!found) { document.getElementById('login-err').classList.add('show'); return; }
 
   // Si es admin y no es DEMO, verificar contraseña actualizada en Supabase
-  if (u === 'admin' && !DEMO) {
+  if (!DEMO) {
     try {
-      const cfg = await sb('config?clave=eq.pass_admin&select=valor');
-      if (cfg && cfg.length > 0) USERS.admin.pass = cfg[0].valor;
+      const cfg = await sb('config?clave=in.(pass_admin,pass_vecino)&select=clave,valor');
+      if (cfg) {
+        const pa = cfg.find(x=>x.clave==='pass_admin');
+        const pv = cfg.find(x=>x.clave==='pass_vecino');
+        if (pa) USERS.admin.pass  = pa.valor;
+        if (pv) USERS.vecino.pass = pv.valor;
+      }
     } catch(e) { /* si falla, usa la pass local */ }
   }
 
@@ -1513,9 +1525,16 @@ function openModal(id) {
     resetComps();
   }
   if (id === 'modal-pass') {
+    document.getElementById('pass-usuario').value = 'admin';
     ['pass-actual','pass-nueva','pass-rep'].forEach(i=>document.getElementById(i).value='');
     document.getElementById('pass-err').classList.remove('show');
     document.getElementById('pass-ok').classList.remove('show');
+    document.getElementById('pass-actual-wrap').style.display = ''; // admin siempre ve su contraseña actual
+    document.getElementById('pass-usuario').onchange = function() {
+      // Si cambia contraseña del vecino no necesita contraseña actual
+      document.getElementById('pass-actual-wrap').style.display = this.value === 'admin' ? '' : 'none';
+      document.getElementById('pass-actual').value = '';
+    };
   }
   document.getElementById(id).classList.add('open');
   document.getElementById('avatar-menu').classList.remove('open');
@@ -2184,29 +2203,35 @@ async function eliminarCategoria(id) {
 //  CAMBIAR CONTRASEÑA (local)
 // ══════════════════════════════════════════════
 async function cambiarPass() {
-  const actual = document.getElementById('pass-actual').value;
-  const nueva  = document.getElementById('pass-nueva').value;
-  const rep    = document.getElementById('pass-rep').value;
-  const err    = document.getElementById('pass-err');
-  const ok     = document.getElementById('pass-ok');
+  const usuario = document.getElementById('pass-usuario').value;
+  const actual  = document.getElementById('pass-actual').value;
+  const nueva   = document.getElementById('pass-nueva').value;
+  const rep     = document.getElementById('pass-rep').value;
+  const err     = document.getElementById('pass-err');
+  const ok      = document.getElementById('pass-ok');
   err.classList.remove('show'); ok.classList.remove('show');
 
-  if (actual !== USERS.admin.pass) { err.textContent='Contraseña actual incorrecta.'; err.classList.add('show'); return; }
+  // Validar contraseña actual solo para admin
+  if (usuario === 'admin' && actual !== USERS.admin.pass) {
+    err.textContent='Contraseña actual incorrecta.'; err.classList.add('show'); return;
+  }
   if (nueva.length < 4) { err.textContent='La nueva contraseña es muy corta.'; err.classList.add('show'); return; }
   if (nueva !== rep) { err.textContent='Las contraseñas no coinciden.'; err.classList.add('show'); return; }
 
+  const claveConfig = usuario === 'admin' ? 'pass_admin' : 'pass_vecino';
+
   try {
     if (!DEMO) {
-      // Verificar si existe el registro
-      const existing = await sb('config?clave=eq.pass_admin');
+      const existing = await sb('config?clave=eq.' + claveConfig);
       if (existing && existing.length > 0) {
-        await sb('config?clave=eq.pass_admin', { method: 'PATCH', body: JSON.stringify({ valor: nueva }) });
+        await sb('config?clave=eq.' + claveConfig, { method: 'PATCH', body: JSON.stringify({ valor: nueva }) });
       } else {
-        await sb('config', { method: 'POST', body: JSON.stringify({ clave: 'pass_admin', valor: nueva }) });
+        await sb('config', { method: 'POST', body: JSON.stringify({ clave: claveConfig, valor: nueva }) });
       }
     }
-    USERS.admin.pass = nueva;
-    ok.textContent='Contraseña cambiada correctamente.'; ok.classList.add('show');
+    USERS[usuario].pass = nueva;
+    ok.textContent = 'Contraseña de ' + (usuario === 'admin' ? 'Admin' : 'Vecino') + ' actualizada ✓';
+    ok.classList.add('show');
     setTimeout(()=>closeModal('modal-pass'), 1400);
   } catch(e) {
     err.textContent='Error al guardar: ' + e.message; err.classList.add('show');
