@@ -422,6 +422,56 @@ textarea { resize: vertical; min-height: 72px; }
 }
 .pdf-btn:active { opacity: 0.75; }
 
+/* ── CUOTAS PANEL ── */
+.cuotas-scroll { padding: 14px 18px 100px; overflow-x: auto; }
+.cuotas-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.cuotas-table th {
+  font-size: 10px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--text-muted); padding: 7px 8px; text-align: left;
+  border-bottom: 1px solid var(--border); white-space: nowrap; background: var(--bg);
+  position: sticky; top: 0;
+}
+.cuotas-table td { padding: 9px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.cuotas-table tr:last-child td { border-bottom: none; }
+.cuotas-table .vecino-cell { font-weight: 500; font-size: 13px; white-space: nowrap; }
+.cuotas-table .lote-cell { color: var(--text-muted); font-size: 11px; }
+.est-chip {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 3px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; white-space: nowrap;
+}
+.est-pagado   { background: rgba(61,186,126,0.15);  color: #3dba7e; }
+.est-debe     { background: rgba(224,92,106,0.15);   color: #e05c6a; }
+.est-mora     { background: rgba(224,92,106,0.25);   color: #e05c6a; border: 1px solid rgba(224,92,106,0.5); }
+.est-nd       { color: var(--text-muted); font-size: 11px; }
+.mora-badge   { display:inline-block; background: #e05c6a; color:#fff; border-radius:99px; font-size:10px; font-weight:700; padding:1px 6px; margin-left:4px; }
+
+/* ── FILTRO VECINO ── */
+.vecino-filter-wrap { padding: 10px 18px 0; }
+.vecino-filter-select {
+  width: 100%; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text); font-family: 'DM Sans',sans-serif;
+  font-size: 13px; padding: 9px 12px; outline: none; -webkit-appearance:none; appearance:none;
+}
+
+/* ── GRÁFICO BARRAS ── */
+.grafico-wrap { margin: 12px 18px 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+.grafico-title { font-size: 11px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 14px; }
+.grafico-bars { display: flex; align-items: flex-end; gap: 6px; height: 90px; }
+.grafico-bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 3px; height: 100%; }
+.grafico-bar { width: 100%; border-radius: 4px 4px 0 0; background: var(--green); min-height: 3px; transition: height .4s ease; }
+.grafico-bar-lbl { font-size: 9px; color: var(--text-muted); text-align: center; }
+.grafico-bar-val { font-size: 9px; color: var(--text-dim); text-align: center; }
+
+/* ── EDITAR MOV ── */
+.btn-edit-mov {
+  width:100%; padding:12px; border-radius:var(--radius-sm);
+  background:transparent; border:1px solid var(--border);
+  color:var(--text-dim); font-family:'DM Sans',sans-serif;
+  font-size:14px; font-weight:500; cursor:pointer; margin-top:8px;
+  transition: border-color .15s, color .15s;
+}
+.btn-edit-mov:hover { border-color:var(--gold); color:var(--gold); }
+
 /* ── TOAST ── */
 .toast {
   position: fixed; bottom: 96px; left: 50%; transform: translateX(-50%) translateY(20px);
@@ -554,6 +604,7 @@ textarea { resize: vertical; min-height: 72px; }
   <!-- Tabs -->
   <div class="nav-tabs" id="nav-tabs">
     <button class="nav-tab active" onclick="setNavTab('movimientos')">Movimientos</button>
+    <button class="nav-tab" onclick="setNavTab('cuotas')">Cuotas</button>
     <button class="nav-tab" onclick="setNavTab('vecinos')" id="tab-vecinos" style="display:none">Vecinos</button>
     <button class="nav-tab" onclick="setNavTab('categorias')" id="tab-cats" style="display:none">Categorías</button>
   </div>
@@ -578,6 +629,17 @@ textarea { resize: vertical; min-height: 72px; }
         <div class="mes-res-val text-red" id="mes-egr">$—</div>
       </div>
     </div>
+    <div class="vecino-filter-wrap">
+      <select class="vecino-filter-select" id="filtro-vecino" onchange="setFiltroVecino(this.value)">
+        <option value="">Todos los vecinos</option>
+      </select>
+    </div>
+    <div id="grafico-vecino-wrap" style="display:none">
+      <div class="grafico-wrap">
+        <div class="grafico-title">Pagos por mes</div>
+        <div class="grafico-bars" id="grafico-bars"></div>
+      </div>
+    </div>
     <div class="chips-row" id="chips-tipo">
       <button class="chip active" onclick="setFiltroTipo('')">Todos</button>
       <button class="chip" onclick="setFiltroTipo('ingreso')">Ingresos</button>
@@ -585,6 +647,21 @@ textarea { resize: vertical; min-height: 72px; }
     </div>
     <div class="chips-row" id="chips-cat"></div>
     <div class="list-wrap" id="mov-list"><div class="empty-state"><div class="icon">📭</div><p>Sin movimientos aún</p></div></div>
+  </div>
+
+  <!-- PANEL: CUOTAS -->
+  <div class="tab-panel" id="panel-cuotas">
+    <div class="cuotas-scroll">
+      <div id="cuotas-mes-nav" style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+        <button class="mes-nav" onclick="cambiarMesCuotas(-1)">‹</button>
+        <div style="flex:1;text-align:center;font-size:14px;font-weight:600" id="cuotas-mes-label">—</div>
+        <button class="mes-nav" onclick="cambiarMesCuotas(1)">›</button>
+      </div>
+      <table class="cuotas-table" id="cuotas-table">
+        <thead><tr><th>Vecino</th><th>Lote</th><th>Estado</th><th>Monto</th></tr></thead>
+        <tbody id="cuotas-tbody"></tbody>
+      </table>
+    </div>
   </div>
 
   <!-- PANEL: VECINOS (admin) -->
@@ -658,8 +735,12 @@ textarea { resize: vertical; min-height: 72px; }
         <select id="ing-vecino"></select>
       </div>
       <div class="form-field">
-        <label class="field-label">Descripción / Período</label>
-        <input type="text" id="ing-desc" placeholder="ej: Cuota Enero 2025">
+        <label class="field-label">Período (mes que paga)</label>
+        <select id="ing-periodo"></select>
+      </div>
+      <div class="form-field">
+        <label class="field-label">Descripción</label>
+        <input type="text" id="ing-desc" placeholder="ej: aclaración adicional">
       </div>
       <div class="form-row">
         <div class="form-field">
@@ -716,10 +797,45 @@ textarea { resize: vertical; min-height: 72px; }
     <div class="det-row"><span class="det-label">Descripción</span><span class="det-val" id="det-desc"></span></div>
     <div class="det-row"><span class="det-label">Fecha</span><span class="det-val" id="det-fecha"></span></div>
     <div class="det-row" id="det-vecinos-row" style="display:none"><span class="det-label">Vecinos</span><span class="det-val" id="det-vecinos-val" style="font-size:12px"></span></div>
+    <div class="det-row" id="det-periodo-row" style="display:none"><span class="det-label">Período</span><span class="det-val" id="det-periodo-val"></span></div>
     <div class="det-row"><span class="det-label">Registrado por</span><span class="det-val" id="det-por"></span></div>
     <div id="det-comp-wrap" style="display:none"></div>
     <button class="btn btn-ghost" style="margin-top:20px" onclick="closeModal('modal-det')">Cerrar</button>
+    <button class="btn-edit-mov" id="btn-det-edit" style="display:none" onclick="abrirEditarMov()">✏️ Editar movimiento</button>
     <button class="btn btn-danger" id="btn-det-del" style="margin-top:8px;display:none" onclick="eliminarMovimiento()">Eliminar movimiento</button>
+  </div>
+</div>
+
+<!-- MODAL: EDITAR MOVIMIENTO -->
+<div class="modal-overlay" id="modal-edit-mov">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Editar movimiento</div>
+    <div class="form-field">
+      <label class="field-label">Descripción</label>
+      <input type="text" id="edit-desc" placeholder="Descripción">
+    </div>
+    <div class="form-row">
+      <div class="form-field">
+        <label class="field-label">Monto ($)</label>
+        <input type="number" id="edit-monto" min="0" step="0.01">
+      </div>
+      <div class="form-field">
+        <label class="field-label">Fecha</label>
+        <input type="date" id="edit-fecha">
+      </div>
+    </div>
+    <div class="form-field" id="edit-periodo-wrap">
+      <label class="field-label">Período</label>
+      <select id="edit-periodo"></select>
+    </div>
+    <div class="form-field" id="edit-vecino-wrap">
+      <label class="field-label">Vecino</label>
+      <select id="edit-vecino"></select>
+    </div>
+    <div id="edit-err" class="alert alert-error"></div>
+    <button class="btn btn-primary" style="margin-top:10px" onclick="guardarEditMov()">Guardar cambios</button>
+    <button class="btn btn-ghost" style="margin-top:8px" onclick="closeModal('modal-edit-mov')">Cancelar</button>
   </div>
 </div>
 
@@ -793,6 +909,8 @@ let tipoMov = 'ingreso';
 let filtroTipo = '';
 let filtroCat = '';
 let filtroMes = null; // { anio, mes } o null = todos
+let filtroVecino = ''; // nombre vecino o ''
+let mesCuotas = null; // { anio, mes } para panel cuotas
 let detalleId = null;
 let editVecinoId = null;
 // Archivos pendientes de subir
@@ -806,11 +924,12 @@ const DEMO_VECINOS = [
   { id:'v4', nombre:'Fernández, Ana',   lote:'04' },
 ];
 let DEMO_MOVS = [
-  { id:'m1', tipo:'ingreso', desc:'Cuota Octubre 2024', monto:45000, fecha:'2024-10-05', cat:'Cuota', por:'Admin', vecinos_nombres:['García, Juan','Martínez, María','López, Carlos'] },
-  { id:'m2', tipo:'egreso',  desc:'Empresa de limpieza', monto:18000, fecha:'2024-10-08', cat:'Limpieza', por:'Admin', vecinos_nombres:null },
-  { id:'m3', tipo:'egreso',  desc:'Reparación portón',   monto:9500,  fecha:'2024-10-12', cat:'Reparación', por:'Admin', vecinos_nombres:null },
-  { id:'m4', tipo:'ingreso', desc:'Cuota Noviembre 2024', monto:45000, fecha:'2024-11-03', cat:'Cuota', por:'Admin', vecinos_nombres:['García, Juan','Fernández, Ana'] },
-  { id:'m5', tipo:'egreso',  desc:'Gas común',            monto:7200,  fecha:'2024-11-15', cat:'Servicios', por:'Admin', vecinos_nombres:null },
+  { id:'m1', tipo:'ingreso', desc:'Cuota Octubre 2024', monto:15000, fecha:'2024-10-05', cat:'Cuota', por:'Admin', vecino_id:'v1', vecino_nombre:'García, Juan',    vecino_lote:'01', periodo:'2024-10' },
+  { id:'m2', tipo:'ingreso', desc:'Cuota Octubre 2024', monto:15000, fecha:'2024-10-05', cat:'Cuota', por:'Admin', vecino_id:'v2', vecino_nombre:'Martínez, María', vecino_lote:'02', periodo:'2024-10' },
+  { id:'m3', tipo:'egreso',  desc:'Empresa de limpieza', monto:18000, fecha:'2024-10-08', cat:'Limpieza',   por:'Admin', vecino_id:null, vecino_nombre:null, vecino_lote:null, periodo:null },
+  { id:'m4', tipo:'egreso',  desc:'Reparación portón',   monto:9500,  fecha:'2024-10-12', cat:'Reparación', por:'Admin', vecino_id:null, vecino_nombre:null, vecino_lote:null, periodo:null },
+  { id:'m5', tipo:'ingreso', desc:'Cuota Noviembre 2024', monto:15000, fecha:'2024-11-03', cat:'Cuota', por:'Admin', vecino_id:'v1', vecino_nombre:'García, Juan',  vecino_lote:'01', periodo:'2024-11' },
+  { id:'m6', tipo:'egreso',  desc:'Gas común',            monto:7200,  fecha:'2024-11-15', cat:'Servicios',  por:'Admin', vecino_id:null, vecino_nombre:null, vecino_lote:null, periodo:null },
 ];
 let demoNextId = 10;
 
@@ -927,6 +1046,7 @@ async function initApp() {
   // Iniciar en mes actual
   const hoy = new Date();
   filtroMes = { anio: hoy.getFullYear(), mes: hoy.getMonth() + 1 };
+  mesCuotas = { anio: hoy.getFullYear(), mes: hoy.getMonth() + 1 };
   renderTodo();
   showScreen('app');
 }
@@ -945,11 +1065,18 @@ async function loadData() {
   try {
     const [v, m, c] = await Promise.all([
       sb('vecinos?order=nombre'),
-      sb('movimientos?order=fecha.desc'),
+      sb('movimientos?select=*,vecino:vecinos(id,nombre,lote)&order=fecha.desc'),
       sb('categorias?order=nombre'),
     ]);
     vecinos = v || [];
-    movimientos = (m || []).map(x => ({ ...x, desc: x.descripcion }));
+    movimientos = (m || []).map(x => ({
+      ...x,
+      desc: x.descripcion,
+      periodo: x.periodo || null,
+      // resolver nombre y lote desde el join
+      vecino_nombre: x.vecino ? x.vecino.nombre : null,
+      vecino_lote:   x.vecino ? x.vecino.lote   : null,
+    }));
     categorias = c || [];
   } catch(err) {
     toast('Error al cargar datos: ' + err.message);
@@ -975,10 +1102,152 @@ function renderTodo() {
   renderMesLabel();
   renderMesResumen();
   renderChipsCat();
+  renderFiltroVecinoSelect();
   renderMovimientos();
+  renderCuotas();
   renderVecinos();
   renderCategorias();
   renderEgrCatSelect();
+}
+
+// ══════════════════════════════════════════════
+//  FILTRO VECINO + GRÁFICO
+// ══════════════════════════════════════════════
+function renderFiltroVecinoSelect() {
+  const sel = document.getElementById('filtro-vecino');
+  const val = sel.value;
+  sel.innerHTML = '<option value="">Todos los vecinos</option>';
+  [...vecinos].sort((a,b)=>a.nombre.localeCompare(b.nombre)).forEach(v => {
+    const o = document.createElement('option');
+    o.value = v.nombre;
+    o.textContent = v.nombre + ' · Lote ' + v.lote;
+    if (v.nombre === val) o.selected = true;
+    sel.appendChild(o);
+  });
+}
+
+function setFiltroVecino(nombre) {
+  filtroVecino = nombre;
+  const wrap = document.getElementById('grafico-vecino-wrap');
+  wrap.style.display = nombre ? '' : 'none';
+  if (nombre) renderGraficoVecino(nombre);
+  renderMovimientos();
+}
+
+function renderGraficoVecino(nombre) {
+  // Últimos 6 meses
+  const meses = [];
+  const hoy = new Date();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(hoy.getFullYear(), hoy.getMonth() - i, 1);
+    meses.push({ anio: d.getFullYear(), mes: d.getMonth() + 1 });
+  }
+  const MESES_CORTO = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const pagos = meses.map(({ anio, mes }) => {
+    // Buscar por periodo si existe, sino por fecha
+    const vecObj = vecinos.find(v => v.nombre === nombre);
+    const vid = vecObj ? vecObj.id : null;
+    const movsMes = movimientos.filter(m => {
+      if (m.tipo !== 'ingreso' || m.cat !== 'Cuota') return false;
+      if (vid && m.vecino_id !== vid) return false;
+      if (!vid && m.vecino_nombre !== nombre) return false;
+      if (m.periodo) return m.periodo === anio + '-' + String(mes).padStart(2,'0');
+      const [y, mo] = m.fecha.split('-').map(Number);
+      return y === anio && mo === mes;
+    });
+    return { label: MESES_CORTO[mes-1], total: movsMes.reduce((s,m)=>s+Number(m.monto),0) };
+  });
+
+  const maxVal = Math.max(...pagos.map(p=>p.total), 1);
+  const bars = document.getElementById('grafico-bars');
+  bars.innerHTML = pagos.map(p => `
+    <div class="grafico-bar-col">
+      <div class="grafico-bar-val">${p.total > 0 ? '$'+fmt(p.total) : ''}</div>
+      <div class="grafico-bar" style="height:${Math.round((p.total/maxVal)*70)+3}px;background:${p.total>0?'var(--green)':'var(--border)'}"></div>
+      <div class="grafico-bar-lbl">${p.label}</div>
+    </div>`).join('');
+}
+
+// ══════════════════════════════════════════════
+//  PANEL CUOTAS (semáforo)
+// ══════════════════════════════════════════════
+let mesCuotasObj = null;
+
+function cambiarMesCuotas(delta) {
+  if (!mesCuotas) {
+    const hoy = new Date();
+    mesCuotas = { anio: hoy.getFullYear(), mes: hoy.getMonth() + 1 };
+  }
+  let { anio, mes } = mesCuotas;
+  mes += delta;
+  if (mes > 12) { mes = 1; anio++; }
+  if (mes < 1)  { mes = 12; anio--; }
+  mesCuotas = { anio, mes };
+  renderCuotas();
+}
+
+function renderCuotas() {
+  if (!mesCuotas) {
+    const hoy = new Date();
+    mesCuotas = { anio: hoy.getFullYear(), mes: hoy.getMonth() + 1 };
+  }
+  const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const lbl = document.getElementById('cuotas-mes-label');
+  if (lbl) lbl.textContent = MESES[mesCuotas.mes-1] + ' ' + mesCuotas.anio;
+
+  const tbody = document.getElementById('cuotas-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  const periodoKey = mesCuotas.anio + '-' + String(mesCuotas.mes).padStart(2,'0');
+
+  // Mes anterior para mora
+  let mesAnt = mesCuotas.mes - 1, anioAnt = mesCuotas.anio;
+  if (mesAnt < 1) { mesAnt = 12; anioAnt--; }
+  const periodoAntKey = anioAnt + '-' + String(mesAnt).padStart(2,'0');
+
+  const sorted = [...vecinos].sort((a,b)=>a.lote.localeCompare(b.lote, undefined, {numeric:true}));
+
+  sorted.forEach(v => {
+    // Buscar pago del mes actual (por vecino_id o por fecha si no tiene periodo)
+    const pagoActual = movimientos.find(m => {
+      if (m.tipo !== 'ingreso' || m.cat !== 'Cuota') return false;
+      if (m.vecino_id !== v.id) return false;
+      if (m.periodo) return m.periodo === periodoKey;
+      const [y, mo] = m.fecha.split('-').map(Number);
+      return y === mesCuotas.anio && mo === mesCuotas.mes;
+    });
+
+    // Mora: no pagó mes anterior
+    const pagoAnterior = movimientos.find(m => {
+      if (m.tipo !== 'ingreso' || m.cat !== 'Cuota') return false;
+      if (m.vecino_id !== v.id) return false;
+      if (m.periodo) return m.periodo === periodoAntKey;
+      const [y, mo] = m.fecha.split('-').map(Number);
+      return y === anioAnt && mo === mesAnt;
+    });
+
+    let estadoHtml;
+    if (pagoActual) {
+      estadoHtml = `<span class="est-chip est-pagado">✓ Pagó</span>`;
+    } else if (!pagoAnterior) {
+      estadoHtml = `<span class="est-chip est-mora">⚠ Mora</span>`;
+    } else {
+      estadoHtml = `<span class="est-chip est-debe">✗ Debe</span>`;
+    }
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="vecino-cell">${v.nombre}</td>
+      <td class="lote-cell">${v.lote}</td>
+      <td>${estadoHtml}</td>
+      <td style="font-size:12px;color:var(--text-dim)">${pagoActual ? '$'+fmt(pagoActual.monto) : '—'}</td>`;
+    tbody.appendChild(tr);
+  });
+
+  if (!sorted.length) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:20px">Sin vecinos cargados</td></tr>';
+  }
 }
 
 // ── SALDO ──
@@ -1014,6 +1283,11 @@ function renderMovimientos() {
       return y === filtroMes.anio && mo === filtroMes.mes;
     });
   }
+  if (filtroVecino) {
+    const vObj = vecinos.find(v => v.nombre === filtroVecino);
+    const vid  = vObj ? vObj.id : null;
+    list = list.filter(m => vid ? m.vecino_id === vid : m.vecino_nombre === filtroVecino);
+  }
   if (filtroTipo) list = list.filter(m=>m.tipo===filtroTipo);
   if (filtroCat)  list = list.filter(m=>m.cat===filtroCat);
 
@@ -1040,10 +1314,8 @@ function renderMovimientos() {
       card.className = 'mov-card';
       card.style.animationDelay = i*.04+'s';
       card.onclick = () => openDetalle(m.id);
-      const vecinoNombre = (m.vecinos_nombres && m.vecinos_nombres.length) ? m.vecinos_nombres[0] : '';
-      const vecinoObj = vecinos.find(v => v.nombre === vecinoNombre);
-      const vecinoLabel = vecinoNombre
-        ? (vecinoNombre + (vecinoObj ? ' · Lote ' + vecinoObj.lote : ''))
+      const vecinoLabel = m.vecino_nombre
+        ? m.vecino_nombre + (m.vecino_lote ? ' · Lote ' + m.vecino_lote : '')
         : '';
       card.innerHTML = `
         <div class="mov-icon ${m.tipo}">${ico}</div>
@@ -1182,13 +1454,14 @@ function renderMesResumen() {
 //  NAVEGACIÓN TABS
 // ══════════════════════════════════════════════
 function setNavTab(t) {
-  ['movimientos','vecinos','categorias'].forEach(id => {
-    document.getElementById('panel-'+id).classList.toggle('active', id===t);
+  ['movimientos','cuotas','vecinos','categorias'].forEach(id => {
+    const el = document.getElementById('panel-'+id);
+    if (el) el.classList.toggle('active', id===t);
   });
   document.querySelectorAll('.nav-tab').forEach((el,i) => {
-    el.classList.toggle('active', ['movimientos','vecinos','categorias'][i]===t);
+    el.classList.toggle('active', ['movimientos','cuotas','vecinos','categorias'][i]===t);
   });
-  // FAB solo en movimientos (admin)
+  if (t === 'cuotas') renderCuotas();
   document.getElementById('fab').className = 'fab' + (t==='movimientos' && currentUser.rol==='admin' ? ' visible' : '');
 }
 
@@ -1223,6 +1496,7 @@ function openModal(id) {
   if (id === 'modal-mov') {
     setTipoMov('ingreso');
     renderIngVecinoSelect();
+    renderPeriodoSelect('ing-periodo');
     renderEgrCatSelect();
     const hoy = todayStr();
     document.getElementById('ing-fecha').value = hoy;
@@ -1248,6 +1522,25 @@ function closeAllModals() { document.querySelectorAll('.modal-overlay').forEach(
 document.querySelectorAll('.modal-overlay').forEach(o => {
   o.addEventListener('click', e => { if(e.target===o) o.classList.remove('open'); });
 });
+
+// ── SELECT PERÍODO ──
+function renderPeriodoSelect(elId, valorActual) {
+  const sel = document.getElementById(elId);
+  if (!sel) return;
+  const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  sel.innerHTML = '';
+  // Generar 12 meses: 6 anteriores, actual, 5 futuros
+  const hoy = new Date();
+  for (let i = -6; i <= 5; i++) {
+    const d = new Date(hoy.getFullYear(), hoy.getMonth() + i, 1);
+    const val = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+    const o = document.createElement('option');
+    o.value = val;
+    o.textContent = MESES[d.getMonth()] + ' ' + d.getFullYear();
+    if (valorActual ? val === valorActual : i === 0) o.selected = true;
+    sel.appendChild(o);
+  }
+}
 
 // ── SELECT VECINO INGRESO ──
 function renderIngVecinoSelect() {
@@ -1356,6 +1649,11 @@ function exportarPDF() {
       return y === filtroMes.anio && mo === filtroMes.mes;
     });
   }
+  if (filtroVecino) {
+    const vObj = vecinos.find(v => v.nombre === filtroVecino);
+    const vid  = vObj ? vObj.id : null;
+    list = list.filter(m => vid ? m.vecino_id === vid : m.vecino_nombre === filtroVecino);
+  }
   if (filtroTipo) list = list.filter(m=>m.tipo===filtroTipo);
   if (filtroCat)  list = list.filter(m=>m.cat===filtroCat);
 
@@ -1457,20 +1755,25 @@ async function guardarMovimiento() {
     if (!fecha || !desc) { err.textContent='Completá fecha y descripción.'; err.classList.add('show'); return; }
     if (isNaN(monto) || monto <= 0) { err.textContent='El monto debe ser mayor a cero.'; err.classList.add('show'); return; }
 
-    let cat, vecinosNombres;
+    let cat, vecino_id = null, vecino_nombre = null, vecino_lote = null;
     if (vecinoId === '__saldo_inicial__') {
-      cat = 'Saldo inicial'; vecinosNombres = null;
+      cat = 'Saldo inicial';
     } else if (vecinoId === '__intereses__') {
-      cat = 'Intereses'; vecinosNombres = null;
+      cat = 'Intereses';
     } else {
-      const vecino = vecinos.find(v => v.id === vecinoId);
-      cat = 'Cuota'; vecinosNombres = vecino ? [vecino.nombre] : [];
+      const vecObj = vecinos.find(v => v.id === vecinoId);
+      cat = 'Cuota';
+      vecino_id     = vecinoId;
+      vecino_nombre = vecObj ? vecObj.nombre : null;
+      vecino_lote   = vecObj ? vecObj.lote   : null;
     }
+    const periodo = document.getElementById('ing-periodo')?.value || null;
     const mov = {
       id: DEMO ? 'm'+demoNextId++ : undefined,
       tipo: 'ingreso', desc, monto, fecha, cat,
       por: currentUser.nombre,
-      vecinos_nombres: vecinosNombres,
+      vecino_id, vecino_nombre, vecino_lote,
+      periodo,
     };
     await saveMov(mov, compFiles.ing);
 
@@ -1484,7 +1787,8 @@ async function guardarMovimiento() {
     }
     const mov = {
       id: DEMO ? 'm'+demoNextId++ : undefined,
-      tipo:'egreso', desc, monto, fecha, cat, por: currentUser.nombre, vecinos_nombres: null,
+      tipo:'egreso', desc, monto, fecha, cat, por: currentUser.nombre,
+      vecino_id: null, vecino_nombre: null, vecino_lote: null,
     };
     await saveMov(mov, compFiles.egr);
   }
@@ -1504,10 +1808,18 @@ async function saveMov(mov, file) {
     const saved = await sb('movimientos', { method:'POST', body: JSON.stringify({
       tipo: mov.tipo, descripcion: mov.desc, monto: mov.monto,
       fecha: mov.fecha, cat: mov.cat, por: mov.por,
-      vecinos_nombres: mov.vecinos_nombres,
+      vecino_id: mov.vecino_id || null,
+      periodo: mov.periodo || null,
     })});
     const _s = Array.isArray(saved) ? saved[0] : saved;
-    const nuevo = { ..._s, desc: _s.descripcion };
+    const vecObj = vecinos.find(v => v.id === _s.vecino_id);
+    const nuevo = {
+      ..._s,
+      desc: _s.descripcion,
+      periodo: _s.periodo || null,
+      vecino_nombre: vecObj ? vecObj.nombre : null,
+      vecino_lote:   vecObj ? vecObj.lote   : null,
+    };
     // Subir comprobante si hay archivo
     if (file) {
       const url = await uploadComprobante(file, nuevo.id);
@@ -1540,17 +1852,23 @@ function openDetalle(id) {
   document.getElementById('det-desc').textContent = m.desc;
   document.getElementById('det-fecha').textContent = fmtFecha(m.fecha);
   document.getElementById('det-por').textContent = m.por;
+  // Mostrar período si existe
+  const perRow = document.getElementById('det-periodo-row');
+  if (perRow) {
+    if (m.periodo) {
+      const [py, pm] = m.periodo.split('-').map(Number);
+      const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+      perRow.style.display = '';
+      document.getElementById('det-periodo-val').textContent = MESES[pm-1] + ' ' + py;
+    } else { perRow.style.display = 'none'; }
+  }
+  document.getElementById('btn-det-edit').style.display = currentUser.rol==='admin' ? '' : 'none';
   const vecinosRow = document.getElementById('det-vecinos-row');
-  const vn = m.vecinos_nombres;
-  const tieneVecinos = vn && Array.isArray(vn) && vn.length > 0;
-  if (tieneVecinos) {
+  if (m.vecino_nombre) {
     vecinosRow.style.display = '';
-    vecinosRow.querySelector('.det-label').textContent = vn.length === 1 ? 'Vecino' : 'Vecinos';
-    const nombres = vn.map(nombre => {
-      const v = vecinos.find(x => x.nombre === nombre);
-      return nombre + (v ? ' (Lote ' + v.lote + ')' : '');
-    });
-    document.getElementById('det-vecinos-val').textContent = nombres.join(', ');
+    vecinosRow.querySelector('.det-label').textContent = 'Vecino';
+    document.getElementById('det-vecinos-val').textContent =
+      m.vecino_nombre + (m.vecino_lote ? ' (Lote ' + m.vecino_lote + ')' : '');
   } else { vecinosRow.style.display = 'none'; }
   document.getElementById('btn-det-del').style.display = currentUser.rol==='admin' ? '' : 'none';
   // Comprobante en detalle
@@ -1585,6 +1903,79 @@ function openDetalle(id) {
     compWrap.style.display = 'none';
   }
   openModal('modal-det');
+}
+
+// ── EDITAR MOVIMIENTO ──
+function abrirEditarMov() {
+  const m = movimientos.find(x=>x.id===detalleId);
+  if (!m) return;
+  closeModal('modal-det');
+
+  document.getElementById('edit-desc').value = m.desc || '';
+  document.getElementById('edit-monto').value = m.monto || '';
+  document.getElementById('edit-fecha').value = m.fecha || '';
+  document.getElementById('edit-err').classList.remove('show');
+
+  // Período: solo para cuotas
+  const perWrap = document.getElementById('edit-periodo-wrap');
+  if (m.cat === 'Cuota') {
+    perWrap.style.display = '';
+    renderPeriodoSelect('edit-periodo', m.periodo);
+  } else { perWrap.style.display = 'none'; }
+
+  // Vecino: solo para ingresos tipo cuota
+  const vecWrap = document.getElementById('edit-vecino-wrap');
+  if (m.tipo === 'ingreso' && m.cat === 'Cuota') {
+    vecWrap.style.display = '';
+    const sel = document.getElementById('edit-vecino');
+    sel.innerHTML = '';
+    [...vecinos].sort((a,b)=>a.nombre.localeCompare(b.nombre)).forEach(v => {
+      const o = document.createElement('option');
+      o.value = v.nombre;
+      o.textContent = v.nombre + ' (Lote ' + v.lote + ')';
+      if (m.vecino_id === v.id) o.selected = true;
+      sel.appendChild(o);
+    });
+  } else { vecWrap.style.display = 'none'; }
+
+  openModal('modal-edit-mov');
+}
+
+async function guardarEditMov() {
+  const m = movimientos.find(x=>x.id===detalleId);
+  if (!m) return;
+  const desc  = document.getElementById('edit-desc').value.trim();
+  const monto = parseFloat(document.getElementById('edit-monto').value);
+  const fecha = document.getElementById('edit-fecha').value;
+  const err   = document.getElementById('edit-err');
+  if (!desc || isNaN(monto) || monto<=0 || !fecha) {
+    err.textContent='Completá todos los campos.'; err.classList.add('show'); return;
+  }
+  const periodo = document.getElementById('edit-periodo-wrap').style.display !== 'none'
+    ? document.getElementById('edit-periodo').value : m.periodo;
+  const vecinoNombre = document.getElementById('edit-vecino-wrap').style.display !== 'none'
+    ? document.getElementById('edit-vecino').value : null;
+  const vecObj2 = vecinoNombre ? vecinos.find(v=>v.nombre===vecinoNombre) : null;
+  const vecino_id_edit   = vecObj2 ? vecObj2.id   : m.vecino_id;
+  const vecino_nombre_ed = vecObj2 ? vecObj2.nombre: m.vecino_nombre;
+  const vecino_lote_ed   = vecObj2 ? vecObj2.lote  : m.vecino_lote;
+
+  if (DEMO) {
+    Object.assign(m, { desc, monto, fecha, periodo, vecino_id: vecino_id_edit, vecino_nombre: vecino_nombre_ed, vecino_lote: vecino_lote_ed });
+  } else {
+    try {
+      await sb('movimientos?id=eq.'+detalleId, {
+        method: 'PATCH',
+        body: JSON.stringify({ descripcion: desc, monto, fecha, periodo, vecino_id: vecino_id_edit }),
+        headers: { Prefer: 'return=minimal' },
+      });
+      Object.assign(m, { desc, monto, fecha, periodo, vecino_id: vecino_id_edit, vecino_nombre: vecino_nombre_ed, vecino_lote: vecino_lote_ed });
+    } catch(e) { err.textContent='Error: '+e.message; err.classList.add('show'); return; }
+  }
+
+  closeModal('modal-edit-mov');
+  renderTodo();
+  toast('Movimiento actualizado ✓');
 }
 
 async function eliminarMovimiento() {
