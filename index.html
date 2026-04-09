@@ -652,10 +652,9 @@ textarea { resize: vertical; min-height: 72px; }
   <!-- PANEL: CUOTAS -->
   <div class="tab-panel" id="panel-cuotas">
     <div class="cuotas-scroll">
-      <div id="cuotas-mes-nav" style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
-        <button class="mes-nav" onclick="cambiarMesCuotas(-1)">‹</button>
-        <div style="flex:1;text-align:center;font-size:14px;font-weight:600" id="cuotas-mes-label">—</div>
-        <button class="mes-nav" onclick="cambiarMesCuotas(1)">›</button>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px">
+        <span style="font-size:12px;color:var(--text-muted)">Período:</span>
+        <span style="flex:1;font-size:14px;font-weight:600;color:var(--text)" id="cuotas-mes-label">—</span>
       </div>
       <table class="cuotas-table" id="cuotas-table">
         <thead><tr><th>Vecino</th><th>Lote</th><th>Estado</th><th>Monto</th></tr></thead>
@@ -910,7 +909,6 @@ let filtroTipo = '';
 let filtroCat = '';
 let filtroMes = null; // { anio, mes } o null = todos
 let filtroVecino = ''; // nombre vecino o ''
-let mesCuotas = null; // { anio, mes } para panel cuotas
 let detalleId = null;
 let editVecinoId = null;
 // Archivos pendientes de subir
@@ -1043,10 +1041,11 @@ async function initApp() {
 
   await loadData();
   clearTimeout(safetyTimer);
-  // Iniciar en mes actual
+  // Iniciar en mes actual (mínimo Enero 2026)
   const hoy = new Date();
-  filtroMes = { anio: hoy.getFullYear(), mes: hoy.getMonth() + 1 };
-  mesCuotas = { anio: hoy.getFullYear(), mes: hoy.getMonth() + 1 };
+  const anioInicio = hoy.getFullYear() < 2026 ? 2026 : hoy.getFullYear();
+  const mesInicio  = hoy.getFullYear() < 2026 ? 1    : hoy.getMonth() + 1;
+  filtroMes = { anio: anioInicio, mes: mesInicio };
   renderTodo();
   showScreen('app');
 }
@@ -1171,38 +1170,19 @@ function renderGraficoVecino(nombre) {
 // ══════════════════════════════════════════════
 //  PANEL CUOTAS (semáforo)
 // ══════════════════════════════════════════════
-let mesCuotasObj = null;
-
-function cambiarMesCuotas(delta) {
-  if (!mesCuotas) {
-    const hoy = new Date();
-    mesCuotas = { anio: hoy.getFullYear(), mes: hoy.getMonth() + 1 };
-  }
-  let { anio, mes } = mesCuotas;
-  mes += delta;
-  if (mes > 12) { mes = 1; anio++; }
-  if (mes < 1)  { mes = 12; anio--; }
-  mesCuotas = { anio, mes };
-  renderCuotas();
-}
 
 function renderCuotas() {
-  if (!mesCuotas) {
-    const hoy = new Date();
-    mesCuotas = { anio: hoy.getFullYear(), mes: hoy.getMonth() + 1 };
-  }
+  const mesCuotasActual = filtroMes || { anio: 2026, mes: 1 };
   const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  const lbl = document.getElementById('cuotas-mes-label');
-  if (lbl) lbl.textContent = MESES[mesCuotas.mes-1] + ' ' + mesCuotas.anio;
 
   const tbody = document.getElementById('cuotas-tbody');
   if (!tbody) return;
   tbody.innerHTML = '';
 
-  const periodoKey = mesCuotas.anio + '-' + String(mesCuotas.mes).padStart(2,'0');
+  const periodoKey = mesCuotasActual.anio + '-' + String(mesCuotasActual.mes).padStart(2,'0');
 
   // Mes anterior para mora
-  let mesAnt = mesCuotas.mes - 1, anioAnt = mesCuotas.anio;
+  let mesAnt = mesCuotasActual.mes - 1, anioAnt = mesCuotasActual.anio;
   if (mesAnt < 1) { mesAnt = 12; anioAnt--; }
   const periodoAntKey = anioAnt + '-' + String(mesAnt).padStart(2,'0');
 
@@ -1215,7 +1195,7 @@ function renderCuotas() {
       if (m.vecino_id !== v.id) return false;
       if (m.periodo) return m.periodo === periodoKey;
       const [y, mo] = m.fecha.split('-').map(Number);
-      return y === mesCuotas.anio && mo === mesCuotas.mes;
+      return y === mesCuotasActual.anio && mo === mesCuotasActual.mes;
     });
 
     // Mora: no pagó mes anterior
@@ -1411,10 +1391,13 @@ function cambiarMes(delta) {
   mes += delta;
   if (mes > 12) { mes = 1; anio++; }
   if (mes < 1)  { mes = 12; anio--; }
+  // No retroceder antes de Enero 2026
+  if (anio < 2026 || (anio === 2026 && mes < 1)) { anio = 2026; mes = 1; }
   filtroMes = { anio, mes };
   renderMovimientos();
   renderMesLabel();
   renderMesResumen();
+  renderCuotas();
 }
 
 function setMesTodo() {
@@ -1422,17 +1405,20 @@ function setMesTodo() {
   renderMovimientos();
   renderMesLabel();
   renderMesResumen();
+  renderCuotas();
 }
 
 function renderMesLabel() {
+  const M = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const lbl = document.getElementById('mes-label');
+  const lblC = document.getElementById('cuotas-mes-label');
   if (!filtroMes) {
-    lbl.textContent = 'Todo el historial';
-    lbl.classList.add('all');
+    if (lbl) { lbl.textContent = 'Todo el historial'; lbl.classList.add('all'); }
+    if (lblC) lblC.textContent = 'Todo el historial';
   } else {
-    const M = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-    lbl.textContent = M[filtroMes.mes - 1] + ' ' + filtroMes.anio;
-    lbl.classList.remove('all');
+    const txt = M[filtroMes.mes - 1] + ' ' + filtroMes.anio;
+    if (lbl) { lbl.textContent = txt; lbl.classList.remove('all'); }
+    if (lblC) lblC.textContent = txt;
   }
 }
 
