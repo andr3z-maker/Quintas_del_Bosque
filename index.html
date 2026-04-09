@@ -736,17 +736,11 @@ const SUPA_URL = 'https://odibssskjtanbxanbgsx.supabase.co';
 const SUPA_KEY = 'sb_publishable_kCvu-kXjjiS4ZAwrtUrhng_FJaU8vle';
 
 // ── USUARIOS (local, sin tabla) ──
-const USERS_DEFAULT = {
+// Contraseñas base (se sobreescriben con lo que viene de Supabase/config)
+const USERS = {
   admin:  { pass: '1234',             nombre: 'Admin',  rol: 'admin'  },
   vecino: { pass: 'quintasdelbosque', nombre: 'Vecino', rol: 'vecino' },
 };
-// Cargar contraseñas guardadas (admin puede cambiarla)
-const USERS = JSON.parse(JSON.stringify(USERS_DEFAULT));
-try {
-  const saved = JSON.parse(localStorage.getItem('bq-passes') || '{}');
-  if (saved.admin)  USERS.admin.pass  = saved.admin;
-  if (saved.vecino) USERS.vecino.pass = saved.vecino;
-} catch(e) {}
 
 // ── DEMO MODE (sin Supabase real) ──
 const DEMO = SUPA_URL.includes('TU_PROYECTO');
@@ -900,14 +894,20 @@ async function loadData() {
     return;
   }
   try {
-    const [v, m, c] = await Promise.all([
+    const [v, m, c, cfg] = await Promise.all([
       sb('vecinos?order=nombre'),
       sb('movimientos?order=fecha.desc'),
       sb('categorias?order=nombre'),
+      sb('config?select=clave,valor'),
     ]);
     vecinos = v || [];
     movimientos = (m || []).map(x => ({ ...x, desc: x.descripcion }));
     categorias = c || [];
+    // Aplicar configuración: contraseña admin
+    if (cfg) {
+      const passAdmin = cfg.find(x => x.clave === 'pass_admin');
+      if (passAdmin) USERS.admin.pass = passAdmin.valor;
+    }
   } catch(err) {
     toast('Error al cargar datos: ' + err.message);
   }
@@ -1511,14 +1511,22 @@ function cambiarPass() {
   if (nueva.length < 4) { err.textContent='La nueva contraseña es muy corta.'; err.classList.add('show'); return; }
   if (nueva !== rep) { err.textContent='Las contraseñas no coinciden.'; err.classList.add('show'); return; }
 
-  USERS.admin.pass = nueva;
   try {
-    const saved = JSON.parse(localStorage.getItem('bq-passes') || '{}');
-    saved.admin = nueva;
-    localStorage.setItem('bq-passes', JSON.stringify(saved));
-  } catch(e) {}
-  ok.textContent='Contraseña cambiada correctamente.'; ok.classList.add('show');
-  setTimeout(()=>closeModal('modal-pass'), 1400);
+    if (!DEMO) {
+      // Verificar si existe el registro
+      const existing = await sb('config?clave=eq.pass_admin');
+      if (existing && existing.length > 0) {
+        await sb('config?clave=eq.pass_admin', { method: 'PATCH', body: JSON.stringify({ valor: nueva }) });
+      } else {
+        await sb('config', { method: 'POST', body: JSON.stringify({ clave: 'pass_admin', valor: nueva }) });
+      }
+    }
+    USERS.admin.pass = nueva;
+    ok.textContent='Contraseña cambiada correctamente.'; ok.classList.add('show');
+    setTimeout(()=>closeModal('modal-pass'), 1400);
+  } catch(e) {
+    err.textContent='Error al guardar: ' + e.message; err.classList.add('show');
+  }
 }
 
 // ══════════════════════════════════════════════
