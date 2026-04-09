@@ -386,6 +386,42 @@ textarea { resize: vertical; min-height: 72px; }
 .inline-form.open { display: block; }
 .inline-form-title { font-size: 13px; font-weight: 600; margin-bottom: 10px; color: var(--text-dim); }
 
+/* ── SELECTOR MES/AÑO ── */
+.mes-selector {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 18px 0; flex-shrink: 0;
+}
+.mes-nav {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text); font-size: 16px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s; flex-shrink: 0;
+}
+.mes-nav:active { background: var(--border); }
+.mes-label {
+  flex: 1; text-align: center;
+  font-size: 14px; font-weight: 600; color: var(--text);
+  cursor: pointer; padding: 4px 0;
+}
+.mes-label.all { color: var(--gold); }
+.mes-resumen {
+  display: flex; gap: 16px;
+  padding: 8px 18px 0; flex-shrink: 0;
+}
+.mes-res-item { flex: 1; }
+.mes-res-lbl { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 2px; }
+.mes-res-val { font-size: 15px; font-weight: 600; }
+.pdf-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: var(--radius-sm);
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text-dim); font-size: 12px; font-weight: 500;
+  cursor: pointer; transition: all .15s; white-space: nowrap;
+  font-family: 'DM Sans', sans-serif;
+}
+.pdf-btn:active { opacity: 0.75; }
+
 /* ── TOAST ── */
 .toast {
   position: fixed; bottom: 96px; left: 50%; transform: translateX(-50%) translateY(20px);
@@ -505,11 +541,11 @@ textarea { resize: vertical; min-height: 72px; }
     <div class="saldo-amount"><span>$</span><span id="saldo-val">—</span></div>
     <div class="saldo-row">
       <div>
-        <div class="saldo-mini-label">Ingresos</div>
+        <div class="saldo-mini-label">Ingresos totales</div>
         <div class="saldo-mini-val text-green" id="tot-ing">$—</div>
       </div>
       <div>
-        <div class="saldo-mini-label">Egresos</div>
+        <div class="saldo-mini-label">Egresos totales</div>
         <div class="saldo-mini-val text-red" id="tot-egr">$—</div>
       </div>
     </div>
@@ -524,6 +560,24 @@ textarea { resize: vertical; min-height: 72px; }
 
   <!-- PANEL: MOVIMIENTOS -->
   <div class="tab-panel active" id="panel-movimientos">
+    <!-- Selector mes/año -->
+    <div class="mes-selector">
+      <button class="mes-nav" onclick="cambiarMes(-1)">‹</button>
+      <div class="mes-label" id="mes-label" onclick="setMesTodo()">—</div>
+      <button class="mes-nav" onclick="cambiarMes(1)">›</button>
+      <button class="pdf-btn" onclick="exportarPDF()">📄 PDF</button>
+    </div>
+    <!-- Resumen del período -->
+    <div class="mes-resumen">
+      <div class="mes-res-item">
+        <div class="mes-res-lbl">Ingresos período</div>
+        <div class="mes-res-val text-green" id="mes-ing">$—</div>
+      </div>
+      <div class="mes-res-item">
+        <div class="mes-res-lbl">Egresos período</div>
+        <div class="mes-res-val text-red" id="mes-egr">$—</div>
+      </div>
+    </div>
     <div class="chips-row" id="chips-tipo">
       <button class="chip active" onclick="setFiltroTipo('')">Todos</button>
       <button class="chip" onclick="setFiltroTipo('ingreso')">Ingresos</button>
@@ -617,19 +671,6 @@ textarea { resize: vertical; min-height: 72px; }
           <input type="date" id="ing-fecha">
         </div>
       </div>
-      <div class="form-field">
-        <label class="field-label">Comprobante <span style="color:var(--text-muted);font-weight:400">(opcional)</span></label>
-        <div class="comp-upload" onclick="if(event.target===this||event.target.classList.contains('comp-upload-icon')||event.target.classList.contains('comp-upload-lbl')||event.target.classList.contains('comp-upload-name')){document.getElementById('ing-comp-file').click()}">
-          <input type="file" id="ing-comp-file" accept="image/*,application/pdf" onchange="onCompFile('ing')" style="display:none">
-          <div class="comp-upload-icon">📎</div>
-          <div class="comp-upload-lbl">Tocá para adjuntar imagen o PDF</div>
-          <div class="comp-upload-name" id="ing-comp-name"></div>
-        </div>
-        <div class="comp-preview-wrap" id="ing-comp-preview-wrap">
-          <img id="ing-comp-preview-img" class="comp-preview-img" alt="Preview">
-          <button class="comp-preview-del" onclick="clearComp('ing')">✕</button>
-        </div>
-      </div>
     </div>
 
     <!-- Panel egreso: libre -->
@@ -651,19 +692,6 @@ textarea { resize: vertical; min-height: 72px; }
       <div class="form-field">
         <label class="field-label">Categoría</label>
         <select id="egr-cat"></select>
-      </div>
-      <div class="form-field">
-        <label class="field-label">Comprobante <span style="color:var(--text-muted);font-weight:400">(opcional)</span></label>
-        <div class="comp-upload" onclick="if(event.target===this||event.target.classList.contains('comp-upload-icon')||event.target.classList.contains('comp-upload-lbl')||event.target.classList.contains('comp-upload-name')){document.getElementById('egr-comp-file').click()}">
-          <input type="file" id="egr-comp-file" accept="image/*,application/pdf" onchange="onCompFile('egr')" style="display:none">
-          <div class="comp-upload-icon">📎</div>
-          <div class="comp-upload-lbl">Tocá para adjuntar imagen o PDF</div>
-          <div class="comp-upload-name" id="egr-comp-name"></div>
-        </div>
-        <div class="comp-preview-wrap" id="egr-comp-preview-wrap">
-          <img id="egr-comp-preview-img" class="comp-preview-img" alt="Preview">
-          <button class="comp-preview-del" onclick="clearComp('egr')">✕</button>
-        </div>
       </div>
     </div>
 
@@ -764,6 +792,7 @@ let categorias = [];
 let tipoMov = 'ingreso';
 let filtroTipo = '';
 let filtroCat = '';
+let filtroMes = null; // { anio, mes } o null = todos
 let detalleId = null;
 let editVecinoId = null;
 // Archivos pendientes de subir
@@ -895,6 +924,9 @@ async function initApp() {
 
   await loadData();
   clearTimeout(safetyTimer);
+  // Iniciar en mes actual
+  const hoy = new Date();
+  filtroMes = { anio: hoy.getFullYear(), mes: hoy.getMonth() + 1 };
   renderTodo();
   showScreen('app');
 }
@@ -940,6 +972,8 @@ async function loadData() {
 // ══════════════════════════════════════════════
 function renderTodo() {
   renderSaldo();
+  renderMesLabel();
+  renderMesResumen();
   renderChipsCat();
   renderMovimientos();
   renderVecinos();
@@ -974,6 +1008,12 @@ function renderChipsCat() {
 // ── MOVIMIENTOS ──
 function renderMovimientos() {
   let list = [...movimientos].sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  if (filtroMes) {
+    list = list.filter(m => {
+      const [y, mo] = m.fecha.split('-').map(Number);
+      return y === filtroMes.anio && mo === filtroMes.mes;
+    });
+  }
   if (filtroTipo) list = list.filter(m=>m.tipo===filtroTipo);
   if (filtroCat)  list = list.filter(m=>m.cat===filtroCat);
 
@@ -1000,8 +1040,11 @@ function renderMovimientos() {
       card.className = 'mov-card';
       card.style.animationDelay = i*.04+'s';
       card.onclick = () => openDetalle(m.id);
-      const vecinoLabel = (m.vecinos_nombres && m.vecinos_nombres.length)
-        ? m.vecinos_nombres[0] : '';
+      const vecinoNombre = (m.vecinos_nombres && m.vecinos_nombres.length) ? m.vecinos_nombres[0] : '';
+      const vecinoObj = vecinos.find(v => v.nombre === vecinoNombre);
+      const vecinoLabel = vecinoNombre
+        ? (vecinoNombre + (vecinoObj ? ' · Lote ' + vecinoObj.lote : ''))
+        : '';
       card.innerHTML = `
         <div class="mov-icon ${m.tipo}">${ico}</div>
         <div class="mov-info">
@@ -1053,18 +1096,20 @@ function renderCategorias() {
     return;
   }
   container.innerHTML = '';
+  const CATS_FIJAS = ['Cuota', 'Saldo inicial', 'Intereses'];
   categorias.forEach(c => {
     const card = document.createElement('div');
     card.className = 'item-card';
-    const esCuota = c.nombre === 'Cuota';
+    const esFija = CATS_FIJAS.includes(c.nombre);
     card.innerHTML = `
       <div class="mov-icon egreso" style="font-size:17px">${c.icono||'📋'}</div>
       <div class="item-card-info">
         <div class="name">${c.nombre}</div>
-        ${esCuota ? '<div class="sub" style="color:var(--gold)">Categoría de ingresos</div>' : ''}
+        ${esFija ? '<div class="sub" style="color:var(--gold)">Categoría del sistema</div>' : ''}
       </div>
       <div class="item-card-actions">
-        ${!esCuota ? `<button class="btn-sm btn-danger" onclick="eliminarCategoria('${c.id}')">🗑</button>` : ''}
+        ${!esFija ? `<button class="btn-sm btn-ghost" onclick="editCategoria('${c.id}')">✏️</button>` : ''}
+        ${!esFija ? `<button class="btn-sm btn-danger" onclick="eliminarCategoria('${c.id}')">🗑</button>` : ''}
       </div>`;
     container.appendChild(card);
   });
@@ -1083,7 +1128,58 @@ function renderEgrCatSelect() {
 }
 
 // ══════════════════════════════════════════════
-//  NAVEGACIÓN
+//  NAVEGACIÓN MES
+// ══════════════════════════════════════════════
+function cambiarMes(delta) {
+  if (!filtroMes) {
+    const hoy = new Date();
+    filtroMes = { anio: hoy.getFullYear(), mes: hoy.getMonth() + 1 };
+  }
+  let { anio, mes } = filtroMes;
+  mes += delta;
+  if (mes > 12) { mes = 1; anio++; }
+  if (mes < 1)  { mes = 12; anio--; }
+  filtroMes = { anio, mes };
+  renderMovimientos();
+  renderMesLabel();
+  renderMesResumen();
+}
+
+function setMesTodo() {
+  filtroMes = null;
+  renderMovimientos();
+  renderMesLabel();
+  renderMesResumen();
+}
+
+function renderMesLabel() {
+  const lbl = document.getElementById('mes-label');
+  if (!filtroMes) {
+    lbl.textContent = 'Todo el historial';
+    lbl.classList.add('all');
+  } else {
+    const M = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    lbl.textContent = M[filtroMes.mes - 1] + ' ' + filtroMes.anio;
+    lbl.classList.remove('all');
+  }
+}
+
+function renderMesResumen() {
+  let list = movimientos;
+  if (filtroMes) {
+    list = list.filter(m => {
+      const [y, mo] = m.fecha.split('-').map(Number);
+      return y === filtroMes.anio && mo === filtroMes.mes;
+    });
+  }
+  const ing = list.filter(m=>m.tipo==='ingreso').reduce((s,m)=>s+Number(m.monto),0);
+  const egr = list.filter(m=>m.tipo==='egreso').reduce((s,m)=>s+Number(m.monto),0);
+  document.getElementById('mes-ing').textContent = '$' + fmt(ing);
+  document.getElementById('mes-egr').textContent = '$' + fmt(egr);
+}
+
+// ══════════════════════════════════════════════
+//  NAVEGACIÓN TABS
 // ══════════════════════════════════════════════
 function setNavTab(t) {
   ['movimientos','vecinos','categorias'].forEach(id => {
@@ -1197,13 +1293,16 @@ function onCompFile(prefix) {
 
 function clearComp(prefix) {
   compFiles[prefix] = null;
-  document.getElementById(prefix + '-comp-file').value = '';
-  document.getElementById(prefix + '-comp-name').style.display = 'none';
-  document.getElementById(prefix + '-comp-preview-wrap').style.display = 'none';
+  const f = document.getElementById(prefix + '-comp-file');
+  if (f) f.value = '';
+  const n = document.getElementById(prefix + '-comp-name');
+  if (n) n.style.display = 'none';
+  const w = document.getElementById(prefix + '-comp-preview-wrap');
+  if (w) w.style.display = 'none';
 }
 
 function resetComps() {
-  clearComp('ing'); clearComp('egr');
+  compFiles = { ing: null, egr: null };
 }
 
 // ── COMPROBANTE: UPLOAD A SUPABASE STORAGE ──
@@ -1239,6 +1338,101 @@ async function uploadComprobante(file, movId) {
     toast('⚠️ Comprobante no se pudo subir: ' + e.message);
     return null;
   }
+}
+
+// ══════════════════════════════════════════════
+//  EXPORTAR PDF
+// ══════════════════════════════════════════════
+function exportarPDF() {
+  const M = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const titulo = filtroMes
+    ? M[filtroMes.mes - 1] + ' ' + filtroMes.anio
+    : 'Historial completo';
+
+  let list = [...movimientos].sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  if (filtroMes) {
+    list = list.filter(m => {
+      const [y, mo] = m.fecha.split('-').map(Number);
+      return y === filtroMes.anio && mo === filtroMes.mes;
+    });
+  }
+  if (filtroTipo) list = list.filter(m=>m.tipo===filtroTipo);
+  if (filtroCat)  list = list.filter(m=>m.cat===filtroCat);
+
+  const ing = list.filter(m=>m.tipo==='ingreso').reduce((s,m)=>s+Number(m.monto),0);
+  const egr = list.filter(m=>m.tipo==='egreso').reduce((s,m)=>s+Number(m.monto),0);
+  const saldoTotal = movimientos.filter(m=>m.tipo==='ingreso').reduce((s,m)=>s+Number(m.monto),0)
+                   - movimientos.filter(m=>m.tipo==='egreso').reduce((s,m)=>s+Number(m.monto),0);
+
+  const filas = list.map(m => `
+    <tr>
+      <td>${fmtFecha(m.fecha)}</td>
+      <td>${m.desc}</td>
+      <td>${m.cat||''}</td>
+      <td>${m.vecinos_nombres && m.vecinos_nombres.length ? m.vecinos_nombres[0] : ''}</td>
+      <td style="text-align:right;color:${m.tipo==='ingreso'?'#2a7d4f':'#c0392b'};font-weight:600">
+        ${m.tipo==='ingreso'?'+':'-'}$${fmt(m.monto)}
+      </td>
+    </tr>`).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Finanzas Quintas del Bosque · ${titulo}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; font-size: 13px; color: #1a1a1a; padding: 32px; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  .sub { color: #666; font-size: 13px; margin-bottom: 24px; }
+  .resumen { display: flex; gap: 24px; margin-bottom: 28px; }
+  .res-box { border: 1px solid #ddd; border-radius: 8px; padding: 14px 20px; flex: 1; }
+  .res-lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #888; margin-bottom: 4px; }
+  .res-val { font-size: 20px; font-weight: 700; }
+  .verde { color: #2a7d4f; } .rojo { color: #c0392b; } .azul { color: #1a5fa8; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: #f5f5f5; padding: 9px 10px; text-align: left; font-size: 11px;
+       text-transform: uppercase; letter-spacing: 1px; color: #666; border-bottom: 2px solid #ddd; }
+  td { padding: 9px 10px; border-bottom: 1px solid #eee; vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  .footer { margin-top: 28px; font-size: 11px; color: #aaa; text-align: center; }
+  @media print { body { padding: 16px; } }
+</style>
+</head>
+<body>
+<h1>Quintas del Bosque</h1>
+<div class="sub">Resumen financiero · ${titulo} · Generado el ${fmtFecha(todayStr())}</div>
+<div class="resumen">
+  <div class="res-box">
+    <div class="res-lbl">Saldo disponible</div>
+    <div class="res-val azul">$${fmt(saldoTotal)}</div>
+  </div>
+  <div class="res-box">
+    <div class="res-lbl">Ingresos período</div>
+    <div class="res-val verde">+$${fmt(ing)}</div>
+  </div>
+  <div class="res-box">
+    <div class="res-lbl">Egresos período</div>
+    <div class="res-val rojo">-$${fmt(egr)}</div>
+  </div>
+</div>
+<table>
+  <thead>
+    <tr>
+      <th>Fecha</th><th>Descripción</th><th>Categoría</th><th>Vecino</th><th style="text-align:right">Monto</th>
+    </tr>
+  </thead>
+  <tbody>${filas || '<tr><td colspan="5" style="text-align:center;color:#aaa;padding:20px">Sin movimientos en este período</td></tr>'}</tbody>
+</table>
+<div class="footer">Finanzas Quintas del Bosque · Documento generado automáticamente</div>
+</body>
+</html>`;
+
+  const win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 400);
 }
 
 // ── LIGHTBOX ──
@@ -1352,7 +1546,11 @@ function openDetalle(id) {
   if (tieneVecinos) {
     vecinosRow.style.display = '';
     vecinosRow.querySelector('.det-label').textContent = vn.length === 1 ? 'Vecino' : 'Vecinos';
-    document.getElementById('det-vecinos-val').textContent = vn.join(', ');
+    const nombres = vn.map(nombre => {
+      const v = vecinos.find(x => x.nombre === nombre);
+      return nombre + (v ? ' (Lote ' + v.lote + ')' : '');
+    });
+    document.getElementById('det-vecinos-val').textContent = nombres.join(', ');
   } else { vecinosRow.style.display = 'none'; }
   document.getElementById('btn-det-del').style.display = currentUser.rol==='admin' ? '' : 'none';
   // Comprobante en detalle
@@ -1473,34 +1671,72 @@ async function eliminarVecino(id) {
 //  ABM CATEGORÍAS
 // ══════════════════════════════════════════════
 function toggleFormCat() {
+  editCatId = null;
   document.getElementById('nc-nombre').value = '';
   document.getElementById('nc-icono').value = '';
   document.getElementById('cat-form-err').classList.remove('show');
+  document.getElementById('form-cat').querySelector('.inline-form-title').textContent = 'Nueva categoría';
   const f = document.getElementById('form-cat');
   f.classList.toggle('open');
 }
+let editCatId = null;
+
+function editCategoria(id) {
+  const c = categorias.find(x => x.id === id);
+  if (!c) return;
+  editCatId = id;
+  document.getElementById('nc-nombre').value = c.nombre;
+  document.getElementById('nc-icono').value = c.icono || '';
+  document.getElementById('cat-form-err').classList.remove('show');
+  const form = document.getElementById('form-cat');
+  form.querySelector('.inline-form-title').textContent = 'Editar categoría';
+  form.classList.add('open');
+  document.getElementById('nc-nombre').focus();
+}
+
 async function guardarCategoria() {
   const nombre = document.getElementById('nc-nombre').value.trim();
   const icono  = document.getElementById('nc-icono').value.trim() || '📋';
   const err    = document.getElementById('cat-form-err');
   if (!nombre) { err.textContent='Escribí el nombre.'; err.classList.add('show'); return; }
-  if (categorias.find(c=>c.nombre.toLowerCase()===nombre.toLowerCase())) {
+  // Solo verificar duplicado si es nueva
+  if (!editCatId && categorias.find(c=>c.nombre.toLowerCase()===nombre.toLowerCase())) {
     err.textContent='Ya existe esa categoría.'; err.classList.add('show'); return;
   }
   err.classList.remove('show');
 
-  if (DEMO) {
-    categorias.push({ id:'cat-'+demoNextId++, nombre, icono });
+  if (editCatId) {
+    // Editar existente
+    if (DEMO) {
+      const c = categorias.find(x=>x.id===editCatId);
+      if (c) { c.nombre = nombre; c.icono = icono; }
+    } else {
+      try {
+        await sb('categorias?id=eq.'+editCatId, { method:'PATCH', body: JSON.stringify({nombre,icono}), headers:{Prefer:'return=minimal'} });
+        const c = categorias.find(x=>x.id===editCatId);
+        if (c) { c.nombre = nombre; c.icono = icono; }
+      } catch(e) { toast('Error: '+e.message); return; }
+    }
+    toast('Categoría actualizada ✓');
   } else {
-    try {
-      const saved = await sb('categorias', { method:'POST', body: JSON.stringify({nombre,icono}) });
-      categorias.push(Array.isArray(saved)?saved[0]:saved);
-    } catch(e) { toast('Error: '+e.message); return; }
+    // Nueva
+    if (DEMO) {
+      categorias.push({ id:'cat-'+demoNextId++, nombre, icono });
+    } else {
+      try {
+        const saved = await sb('categorias', { method:'POST', body: JSON.stringify({nombre,icono}) });
+        categorias.push(Array.isArray(saved)?saved[0]:saved);
+      } catch(e) { toast('Error: '+e.message); return; }
+    }
+    toast('Categoría agregada ✓');
   }
+
+  editCatId = null;
+  document.getElementById('form-cat').querySelector('.inline-form-title').textContent = 'Nueva categoría';
   toggleFormCat();
   renderCategorias();
   renderChipsCat();
-  toast('Categoría agregada ✓');
+  renderEgrCatSelect();
 }
 async function eliminarCategoria(id) {
   const c = categorias.find(x=>x.id===id);
