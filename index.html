@@ -678,6 +678,10 @@ textarea { resize: vertical; min-height: 72px; }
             <input type="text" id="nv-lote" placeholder="ej: 14B">
           </div>
         </div>
+        <div class="form-field">
+          <label class="field-label">Teléfono <span style="color:var(--text-muted);font-weight:400">(para SMS, ej: +5491112345678)</span></label>
+          <input type="text" id="nv-telefono" placeholder="+5491112345678">
+        </div>
         <div class="form-row">
           <div class="form-field">
             <label class="field-label">Mes de ingreso</label>
@@ -894,6 +898,8 @@ textarea { resize: vertical; min-height: 72px; }
 // ══════════════════════════════════════════════
 const SUPA_URL = 'https://odibssskjtanbxanbgsx.supabase.co';
 const SUPA_KEY = 'sb_publishable_kCvu-kXjjiS4ZAwrtUrhng_FJaU8vle';
+const SMS_ENDPOINT = 'https://ygziucvuh6.execute-api.us-east-2.amazonaws.com/default/quintas-sms';
+const SMS_API_KEY  = 'quintas2026';
 
 // ── USUARIOS (local, sin tabla) ──
 // Contraseñas base (se sobreescriben con lo que viene de Supabase/config)
@@ -1843,6 +1849,18 @@ async function guardarMovimiento() {
   closeModal('modal-mov');
   renderTodo();
   toast('Movimiento guardado ✓');
+
+  // Enviar SMS si es cuota y el vecino tiene teléfono
+  if (tipoMov === 'ingreso' && mov.cat === 'Cuota' && mov.vecino_id) {
+    const vecObj = vecinos.find(v => v.id === mov.vecino_id);
+    if (vecObj && vecObj.telefono) {
+      const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+      const [py, pm] = (mov.periodo || periodoHoy()).split('-').map(Number);
+      const periodoTxt = MESES[pm-1] + ' ' + py;
+      const msg = `Quintas del Bosque: Se registró tu pago de $${fmt(mov.monto)} correspondiente a ${periodoTxt}. Gracias!`;
+      enviarSMS(vecObj.telefono, msg);
+    }
+  }
 }
 
 async function saveMov(mov, file) {
@@ -2046,6 +2064,7 @@ function toggleFormVecino() {
   document.getElementById('form-vecino-title').textContent = 'Nuevo vecino';
   document.getElementById('nv-nombre').value = '';
   document.getElementById('nv-lote').value = '';
+  document.getElementById('nv-telefono').value = '';
   document.getElementById('vecino-form-err').classList.remove('show');
   renderPeriodoSelect('nv-desde', periodoHoy());
   renderPeriodoSelectHasta('nv-hasta', null);
@@ -2062,6 +2081,7 @@ function editVecino(id) {
   editVecinoId = id;
   document.getElementById('nv-nombre').value = v.nombre;
   document.getElementById('nv-lote').value = v.lote;
+  document.getElementById('nv-telefono').value = v.telefono || '';
   renderPeriodoSelect('nv-desde', v.fecha_desde || '2026-01');
   renderPeriodoSelectHasta('nv-hasta', v.fecha_hasta || null);
   document.getElementById('form-vecino-title').textContent = 'Editar vecino';
@@ -2078,22 +2098,23 @@ async function guardarVecino() {
   const fecha_desde = document.getElementById('nv-desde').value || '2026-01';
   const fecha_hastaVal = document.getElementById('nv-hasta').value;
   const fecha_hasta = fecha_hastaVal === '__ninguno__' ? null : (fecha_hastaVal || null);
+  const telefono = document.getElementById('nv-telefono').value.trim() || null;
 
   if (DEMO) {
     if (editVecinoId) {
       const v = vecinos.find(x=>x.id===editVecinoId);
-      if (v) { v.nombre=nombre; v.lote=lote; v.fecha_desde=fecha_desde; v.fecha_hasta=fecha_hasta; }
+      if (v) { v.nombre=nombre; v.lote=lote; v.fecha_desde=fecha_desde; v.fecha_hasta=fecha_hasta; v.telefono=telefono; }
     } else {
-      vecinos.push({ id:'v'+demoNextId++, nombre, lote, fecha_desde, fecha_hasta });
+      vecinos.push({ id:'v'+demoNextId++, nombre, lote, fecha_desde, fecha_hasta, telefono });
     }
   } else {
     try {
       if (editVecinoId) {
-        await sb('vecinos?id=eq.'+editVecinoId, { method:'PATCH', body: JSON.stringify({nombre,lote,fecha_desde,fecha_hasta}) });
+        await sb('vecinos?id=eq.'+editVecinoId, { method:'PATCH', body: JSON.stringify({nombre,lote,fecha_desde,fecha_hasta,telefono}) });
         const v = vecinos.find(x=>x.id===editVecinoId);
-        if(v){v.nombre=nombre;v.lote=lote;v.fecha_desde=fecha_desde;v.fecha_hasta=fecha_hasta;}
+        if(v){v.nombre=nombre;v.lote=lote;v.fecha_desde=fecha_desde;v.fecha_hasta=fecha_hasta;v.telefono=telefono;}
       } else {
-        const saved = await sb('vecinos', { method:'POST', body: JSON.stringify({nombre,lote,fecha_desde,fecha_hasta}) });
+        const saved = await sb('vecinos', { method:'POST', body: JSON.stringify({nombre,lote,fecha_desde,fecha_hasta,telefono}) });
         vecinos.push(Array.isArray(saved)?saved[0]:saved);
       }
     } catch(e) { toast('Error: '+e.message); return; }
@@ -2264,6 +2285,22 @@ function toast(msg) {
 // ══════════════════════════════════════════════
 //  HELPERS
 // ══════════════════════════════════════════════
+// ══════════════════════════════════════════════
+//  ENVIAR SMS
+// ══════════════════════════════════════════════
+async function enviarSMS(telefono, mensaje) {
+  if (!telefono || DEMO) return;
+  try {
+    await fetch(SMS_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ telefono, mensaje, api_key: SMS_API_KEY }),
+    });
+  } catch(e) {
+    console.warn('SMS no enviado:', e.message);
+  }
+}
+
 function periodoHoy() {
   const d = new Date();
   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
