@@ -1218,16 +1218,17 @@ function renderCuotas() {
     .sort((a,b)=>a.lote.localeCompare(b.lote, undefined, {numeric:true}));
 
   sorted.forEach(v => {
-    // Buscar pago del mes actual (por vecino_id o por fecha si no tiene periodo)
-    const pagoActual = movimientos.find(m => {
+    // Sumar TODOS los pagos del mes actual
+    const pagosActual = movimientos.filter(m => {
       if (m.tipo !== 'ingreso' || m.cat !== 'Cuota') return false;
       if (m.vecino_id !== v.id) return false;
       if (m.periodo) return m.periodo === periodoKey;
       const [y, mo] = m.fecha.split('-').map(Number);
       return y === mesCuotasActual.anio && mo === mesCuotasActual.mes;
     });
+    const totalActual = pagosActual.reduce((s, m) => s + Number(m.monto), 0);
 
-    // Mora: no pagó mes anterior
+    // Mora: no pagó nada el mes anterior
     const pagoAnterior = movimientos.find(m => {
       if (m.tipo !== 'ingreso' || m.cat !== 'Cuota') return false;
       if (m.vecino_id !== v.id) return false;
@@ -1237,7 +1238,7 @@ function renderCuotas() {
     });
 
     let estadoHtml;
-    if (pagoActual) {
+    if (totalActual > 0) {
       estadoHtml = `<span class="est-chip est-pagado">✓ Pagó</span>`;
     } else if (!pagoAnterior) {
       estadoHtml = `<span class="est-chip est-mora">⚠ Mora</span>`;
@@ -1250,7 +1251,7 @@ function renderCuotas() {
       <td class="vecino-cell">${v.nombre}</td>
       <td class="lote-cell">${v.lote}</td>
       <td>${estadoHtml}</td>
-      <td style="font-size:12px;color:var(--text-dim)">${pagoActual ? '$'+fmt(pagoActual.monto) : '—'}</td>`;
+      <td style="font-size:12px;color:var(--text-dim)">${totalActual > 0 ? '$'+fmt(totalActual) : '—'}</td>`;
     tbody.appendChild(tr);
   });
 
