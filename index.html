@@ -1829,6 +1829,19 @@ async function guardarMovimiento() {
     };
     await saveMov(mov, compFiles.ing);
 
+    // Enviar SMS si es cuota y el vecino tiene teléfono
+    if (cat === 'Cuota' && vecino_id) {
+      const vecSMS = vecinos.find(v => v.id === vecino_id);
+      if (vecSMS && vecSMS.telefono) {
+        const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+        const periodo = document.getElementById('ing-periodo')?.value || periodoHoy();
+        const [py, pm] = periodo.split('-').map(Number);
+        const periodoTxt = MESES[pm-1] + ' ' + py;
+        const msg = `Quintas del Bosque: Se registró tu pago de $${fmt(monto)} correspondiente a ${periodoTxt}. Gracias!`;
+        enviarSMS(vecSMS.telefono, msg);
+      }
+    }
+
   } else {
     const desc  = document.getElementById('egr-desc').value.trim();
     const monto = parseFloat(document.getElementById('egr-monto').value);
@@ -1849,18 +1862,6 @@ async function guardarMovimiento() {
   closeModal('modal-mov');
   renderTodo();
   toast('Movimiento guardado ✓');
-
-  // Enviar SMS si es cuota y el vecino tiene teléfono
-  if (tipoMov === 'ingreso' && mov.cat === 'Cuota' && mov.vecino_id) {
-    const vecObj = vecinos.find(v => v.id === mov.vecino_id);
-    if (vecObj && vecObj.telefono) {
-      const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-      const [py, pm] = (mov.periodo || periodoHoy()).split('-').map(Number);
-      const periodoTxt = MESES[pm-1] + ' ' + py;
-      const msg = `Quintas del Bosque: Se registró tu pago de $${fmt(mov.monto)} correspondiente a ${periodoTxt}. Gracias!`;
-      enviarSMS(vecObj.telefono, msg);
-    }
-  }
 }
 
 async function saveMov(mov, file) {
