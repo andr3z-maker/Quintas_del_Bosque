@@ -2292,9 +2292,11 @@ function toast(msg) {
 async function enviarSMS(telefono, mensaje) {
   if (!telefono || DEMO) return;
   try {
+    // Usar text/plain para evitar preflight CORS
     await fetch(SMS_ENDPOINT, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ telefono, mensaje, api_key: SMS_API_KEY }),
     });
   } catch(e) {
