@@ -1837,7 +1837,7 @@ async function guardarMovimiento() {
         const periodo = document.getElementById('ing-periodo')?.value || periodoHoy();
         const [py, pm] = periodo.split('-').map(Number);
         const periodoTxt = MESES[pm-1] + ' ' + py;
-        const msg = `Quintas del Bosque: Se registró tu pago de $${fmt(monto)} correspondiente a ${periodoTxt}. Gracias!`;
+        const msg = `Quintas del Bosque: Pago $${fmt(monto)} - ${periodoTxt} registrado. Gracias!`;
         enviarSMS(vecSMS.telefono, msg);
       }
     }
